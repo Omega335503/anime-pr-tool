@@ -1,0 +1,266 @@
+"""Vercel Serverless Function: アニメ広報レポート生成API"""
+
+import json
+import time
+import re
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler
+from duckduckgo_search import DDGS
+
+# ドメイン→メディア名のマッピング
+MEDIA_MAP = {
+    "natalie.mu": "コミックナタリー",
+    "dengekionline.com": "電撃オンライン",
+    "mantan-web.jp": "MANTANWEB",
+    "anime.eiga.com": "アニメハック",
+    "news.yahoo.co.jp": "Yahoo!ニュース",
+    "animatetimes.com": "アニメイトタイムズ",
+    "famitsu.com": "ファミ通.com",
+    "4gamer.net": "4Gamer.net",
+    "gigazine.net": "GIGAZINE",
+    "nlab.itmedia.co.jp": "ねとらぼ",
+    "oricon.co.jp": "ORICON NEWS",
+    "realsound.jp": "リアルサウンド",
+    "animeanime.jp": "アニメ!アニメ!",
+    "eiga.com": "映画.com",
+    "cinematoday.jp": "シネマトゥデイ",
+    "jp.ign.com": "IGN Japan",
+    "kai-you.net": "KAI-YOU",
+    "game.watch.impress.co.jp": "GAME Watch",
+    "hobby.watch.impress.co.jp": "HOBBY Watch",
+    "av.watch.impress.co.jp": "AV Watch",
+    "itmedia.co.jp": "ITmedia",
+    "mynavinews.com": "マイナビニュース",
+    "news.mynavi.jp": "マイナビニュース",
+    "gamer.ne.jp": "Gamer",
+    "comic-walker.com": "カドコミ",
+    "manga.nicovideo.jp": "ニコニコ漫画",
+    "koubo.jp": "Koubo",
+    "news.toremaga.com": "とれまがニュース",
+}
+
+PR_DOMAINS = {
+    "prtimes.jp": "PR TIMES",
+    "atpress.ne.jp": "@Press",
+    "valuepress.com": "ValuePress!",
+}
+
+SNS_DOMAINS = {"x.com", "twitter.com"}
+INFO_DOMAINS = {"dic.pixiv.net", "ja.wikipedia.org", "anidb.net", "myanimelist.net"}
+
+
+def get_domain(url):
+    match = re.search(r'https?://(?:www\.)?([^/]+)', url)
+    return match.group(1) if match else ""
+
+
+def search_ddg(query, max_results=10, retries=3):
+    for attempt in range(retries + 1):
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, region="jp-jp", max_results=max_results))
+            return results
+        except Exception as e:
+            print(f"Search attempt {attempt + 1} failed for '{query}': {e}")
+            if attempt < retries:
+                wait = 5 * (attempt + 1)
+                time.sleep(wait)
+    return []
+
+
+def classify_result(url, title, body, anime_title):
+    domain = get_domain(url)
+    clean_anime = anime_title.replace(" ", "").replace("　", "")
+    clean_title = title.replace(" ", "").replace("　", "")
+    clean_body = body.replace(" ", "").replace("　", "")
+
+    if clean_anime not in clean_title and clean_anime not in clean_body:
+        return None, None
+
+    for pr_domain, pr_name in PR_DOMAINS.items():
+        if pr_domain in domain:
+            return "press_release", {"source": pr_name, "title": title, "url": url, "body": body}
+
+    if any(sns in domain for sns in SNS_DOMAINS):
+        is_post = "/status/" in url
+        account_match = re.search(r'(?:x\.com|twitter\.com)/(\w+)', url)
+        account = f"@{account_match.group(1)}" if account_match else ""
+        return "sns", {"account": account, "title": title, "url": url, "is_post": is_post, "body": body}
+
+    if any(info in domain for info in INFO_DOMAINS):
+        return "info", {"source": title, "url": url, "body": body}
+
+    for media_domain, media_name in MEDIA_MAP.items():
+        if media_domain in domain:
+            return "media", {"media": media_name, "title": title, "url": url, "body": body}
+
+    if any(kw in url for kw in ["/news/", "/article/", "/press/"]):
+        return "media", {"media": domain, "title": title, "url": url, "body": body}
+
+    return None, None
+
+
+def collect_all_results(anime_title):
+    press_releases, media_coverage, sns_posts, info_pages = [], [], [], []
+    seen_urls = set()
+
+    queries = [
+        f'"{anime_title}" アニメ',
+        f'"{anime_title}" アニメ化',
+        f'"{anime_title}" プレスリリース OR ニュース OR 発表',
+        f'{anime_title} site:x.com OR site:twitter.com',
+    ]
+
+    for i, query in enumerate(queries):
+        if i > 0:
+            time.sleep(5)
+        results = search_ddg(query, max_results=25)
+
+        for r in results:
+            url = r.get("href", "")
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            category, item = classify_result(url, r.get("title", ""), r.get("body", ""), anime_title)
+            if category == "press_release":
+                press_releases.append(item)
+            elif category == "media":
+                media_coverage.append(item)
+            elif category == "sns":
+                sns_posts.append(item)
+            elif category == "info":
+                info_pages.append(item)
+
+    return press_releases, media_coverage, sns_posts, info_pages
+
+
+def generate_report(anime_title, press_releases, media_coverage, sns_posts, info_pages):
+    now = datetime.now().strftime("%Y年%m月%d日")
+    lines = []
+    lines.append(f"# 『{anime_title}』 広報レポート\n")
+    lines.append(f"**作成日:** {now}")
+    lines.append(f"**対象作品:** {anime_title}")
+    lines.append("")
+    lines.append("---\n")
+
+    lines.append("## 1. プレスリリース\n")
+    if press_releases:
+        lines.append("| # | 配信元 | タイトル | URL |")
+        lines.append("|---|--------|---------|-----|")
+        for i, pr in enumerate(press_releases, 1):
+            t = pr["title"][:60] + "..." if len(pr["title"]) > 60 else pr["title"]
+            lines.append(f'| {i} | {pr["source"]} | {t} | {pr["url"]} |')
+    else:
+        lines.append("該当するプレスリリースは見つかりませんでした。\n")
+    lines.append("")
+
+    lines.append("---\n")
+    lines.append("## 2. メディア掲載一覧\n")
+    if media_coverage:
+        lines.append("| # | メディア名 | 記事タイトル | URL |")
+        lines.append("|---|----------|------------|-----|")
+        for i, mc in enumerate(media_coverage, 1):
+            t = mc["title"][:50] + "..." if len(mc["title"]) > 50 else mc["title"]
+            lines.append(f'| {i} | {mc["media"]} | {t} | {mc["url"]} |')
+        lines.append("")
+        lines.append(f"**掲載メディア数: {len(set(mc['media'] for mc in media_coverage))}媒体 / 記事数: {len(media_coverage)}件**")
+    else:
+        lines.append("該当するメディア掲載は見つかりませんでした。\n")
+    lines.append("")
+
+    lines.append("---\n")
+    lines.append("## 3. SNS（X / Twitter）\n")
+    posts = [s for s in sns_posts if s["is_post"]]
+    profiles = [s for s in sns_posts if not s["is_post"]]
+
+    if posts:
+        lines.append("### 関連投稿\n")
+        lines.append("| # | アカウント | 内容 | URL |")
+        lines.append("|---|----------|------|-----|")
+        for i, p in enumerate(posts, 1):
+            b = p["body"][:40] + "..." if len(p["body"]) > 40 else p["body"]
+            lines.append(f'| {i} | {p["account"]} | {b} | {p["url"]} |')
+    else:
+        lines.append("関連投稿は検索で見つかりませんでした。\n")
+
+    if profiles:
+        lines.append("\n### 関連アカウント\n")
+        for p in profiles:
+            lines.append(f'- {p["account"]}: {p["url"]}')
+    lines.append("")
+
+    if info_pages:
+        lines.append("---\n")
+        lines.append("## 4. 関連情報ページ\n")
+        for ip in info_pages:
+            lines.append(f'- [{ip["source"]}]({ip["url"]})')
+        lines.append("")
+
+    lines.append("---\n")
+    lines.append("## サマリー\n")
+    lines.append(f"- プレスリリース: **{len(press_releases)}件**")
+    mc_count = len(set(mc["media"] for mc in media_coverage)) if media_coverage else 0
+    lines.append(f"- メディア掲載: **{mc_count}媒体 / {len(media_coverage)}記事**")
+    lines.append(f"- SNS投稿: **{len(posts)}件**")
+    lines.append(f"- 関連情報ページ: **{len(info_pages)}件**")
+    lines.append("")
+
+    lines.append("---\n")
+    lines.append("## 注記\n")
+    lines.append("- X（Twitter）のエンゲージメント数値（いいね・RT・インプレッション）はWeb検索では取得できません。手動またはX API経由での確認が必要です。")
+    lines.append("- PR TIMESのPV数は管理画面からの確認が必要です。")
+    lines.append("- 各メディア記事のPV数は各メディアのレポート機能から確認してください。")
+    lines.append("- 検索結果はDuckDuckGoのインデックスに依存しており、全ての記事を網羅できない場合があります。")
+    lines.append("")
+    lines.append("---\n")
+    lines.append(f"*本レポートは自動検索により {now} に生成されました。*")
+
+    return "\n".join(lines)
+
+
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            return
+
+        anime_title = data.get("title", "").strip()
+        if not anime_title:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "アニメタイトルを入力してください"}).encode())
+            return
+
+        try:
+            pr, media, sns, info = collect_all_results(anime_title)
+            report = generate_report(anime_title, pr, media, sns, info)
+
+            result = json.dumps({
+                "report": report,
+                "stats": {
+                    "press_releases": len(pr),
+                    "media_coverage": len(media),
+                    "sns_posts": len([s for s in sns if s["is_post"]]),
+                    "info_pages": len(info),
+                }
+            }, ensure_ascii=False)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(result.encode("utf-8"))
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": f"検索中にエラーが発生しました: {str(e)}"}, ensure_ascii=False).encode("utf-8"))

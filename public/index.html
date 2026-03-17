@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アニメ広報レポート生成ツール</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+            background: #0f1117;
+            color: #e4e4e7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .subtitle {
+            color: #71717a;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+
+        .input-section {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #a1a1aa;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            background: #09090b;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #6366f1;
+        }
+
+        input[type="text"]::placeholder {
+            color: #52525b;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 12px;
+            background: #6366f1;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-generate:hover {
+            background: #4f46e5;
+        }
+
+        .btn-generate:disabled {
+            background: #3f3f46;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #27272a;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #a1a1aa;
+            font-size: 14px;
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .stat-card .number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #6366f1;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #71717a;
+            margin-top: 2px;
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .btn-action {
+            padding: 8px 16px;
+            background: #27272a;
+            color: #e4e4e7;
+            border: 1px solid #3f3f46;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-action:hover {
+            background: #3f3f46;
+        }
+
+        .btn-action.copied {
+            background: #065f46;
+            border-color: #059669;
+            color: #6ee7b7;
+        }
+
+        .report-preview {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        .report-preview h1 { font-size: 20px; margin-bottom: 12px; color: #fff; }
+        .report-preview h2 { font-size: 17px; margin: 20px 0 10px; color: #e4e4e7; border-bottom: 1px solid #27272a; padding-bottom: 6px; }
+        .report-preview h3 { font-size: 15px; margin: 14px 0 8px; color: #d4d4d8; }
+        .report-preview p { margin: 6px 0; line-height: 1.6; font-size: 14px; }
+        .report-preview strong { color: #a78bfa; }
+        .report-preview hr { border: none; border-top: 1px solid #27272a; margin: 16px 0; }
+        .report-preview table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+        .report-preview th { background: #27272a; padding: 8px 10px; text-align: left; font-weight: 600; }
+        .report-preview td { padding: 8px 10px; border-bottom: 1px solid #27272a; }
+        .report-preview a { color: #818cf8; text-decoration: none; }
+        .report-preview a:hover { text-decoration: underline; }
+        .report-preview ul { margin: 6px 0; padding-left: 20px; }
+        .report-preview li { margin: 4px 0; font-size: 14px; line-height: 1.5; }
+        .report-preview em { color: #71717a; font-style: italic; }
+
+        .raw-markdown {
+            display: none;
+            background: #09090b;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #a1a1aa;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .raw-markdown.active {
+            display: block;
+        }
+
+        .error-msg {
+            background: #451a1a;
+            border: 1px solid #7f1d1d;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #fca5a5;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-msg.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>アニメ広報レポート生成ツール</h1>
+        <p class="subtitle">アニメタイトルを入力するだけで、プレスリリース・メディア掲載・SNS投稿を自動検索してレポートを生成します。</p>
+
+        <div class="input-section">
+            <div class="form-group">
+                <label for="anime-title">アニメタイトル</label>
+                <input type="text" id="anime-title" placeholder="例: ダークサモナーとデキている" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <button class="btn-generate" id="btn-generate" onclick="generateReport()">レポートを生成</button>
+            </div>
+        </div>
+
+        <div class="error-msg" id="error-msg"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p class="loading-text" id="loading-text">検索中... メディアを巡回しています（30秒〜1分ほどかかります）</p>
+        </div>
+
+        <div class="result-section" id="result-section">
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <div class="number" id="stat-pr">0</div>
+                    <div class="label">プレスリリース</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="stat-media">0</div>
+                    <div class="label">メディア掲載</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="stat-sns">0</div>
+                    <div class="label">SNS投稿</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="stat-info">0</div>
+                    <div class="label">関連ページ</div>
+                </div>
+            </div>
+
+            <div class="actions-bar">
+                <button class="btn-action" id="btn-copy" onclick="copyMarkdown()">Markdownをコピー</button>
+                <button class="btn-action" onclick="downloadMarkdown()">ダウンロード (.md)</button>
+                <button class="btn-action" id="btn-toggle" onclick="toggleView()">Markdown原文を表示</button>
+            </div>
+
+            <div class="report-preview" id="report-preview"></div>
+            <div class="raw-markdown" id="raw-markdown"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentReport = "";
+        let currentTitle = "";
+        let showingRaw = false;
+
+        // Enter キーで生成
+        document.getElementById("anime-title").addEventListener("keydown", function(e) {
+            if (e.key === "Enter") generateReport();
+        });
+
+        async function generateReport() {
+            const title = document.getElementById("anime-title").value.trim();
+            if (!title) return;
+
+            currentTitle = title;
+            const btn = document.getElementById("btn-generate");
+            const loading = document.getElementById("loading");
+            const result = document.getElementById("result-section");
+            const errorMsg = document.getElementById("error-msg");
+
+            btn.disabled = true;
+            loading.classList.add("active");
+            result.classList.remove("active");
+            errorMsg.classList.remove("active");
+
+            try {
+                const res = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || "エラーが発生しました");
+                }
+
+                currentReport = data.report;
+
+                // Stats
+                document.getElementById("stat-pr").textContent = data.stats.press_releases;
+                document.getElementById("stat-media").textContent = data.stats.media_coverage;
+                document.getElementById("stat-sns").textContent = data.stats.sns_posts;
+                document.getElementById("stat-info").textContent = data.stats.info_pages;
+
+                // Render markdown
+                document.getElementById("report-preview").innerHTML = renderMarkdown(data.report);
+                document.getElementById("raw-markdown").textContent = data.report;
+
+                result.classList.add("active");
+            } catch (e) {
+                errorMsg.textContent = e.message;
+                errorMsg.classList.add("active");
+            } finally {
+                btn.disabled = false;
+                loading.classList.remove("active");
+            }
+        }
+
+        function renderMarkdown(md) {
+            // Simple markdown to HTML converter
+            let html = md;
+
+            // Escape HTML
+            html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            // Headers
+            html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+            html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+            html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+
+            // Bold
+            html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+            // Italic
+            html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+            // Links
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+            // Bare URLs
+            html = html.replace(/(^|[^"(])(https?:\/\/[^\s<)]+)/gm, '$1<a href="$2" target="_blank">$2</a>');
+
+            // Horizontal rule
+            html = html.replace(/^---$/gm, "<hr>");
+
+            // Tables
+            html = html.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm, function(match, header, sep, body) {
+                let table = "<table><thead><tr>";
+                header.split("|").filter(c => c.trim()).forEach(cell => {
+                    table += `<th>${cell.trim()}</th>`;
+                });
+                table += "</tr></thead><tbody>";
+                body.trim().split("\n").forEach(row => {
+                    table += "<tr>";
+                    row.split("|").filter(c => c.trim()).forEach(cell => {
+                        table += `<td>${cell.trim()}</td>`;
+                    });
+                    table += "</tr>";
+                });
+                table += "</tbody></table>";
+                return table;
+            });
+
+            // Unordered list
+            html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+            html = html.replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>");
+
+            // Paragraphs
+            html = html.replace(/^(?!<[huhlt]|<li|<a|<str)(.+)$/gm, "<p>$1</p>");
+
+            // Clean up
+            html = html.replace(/<p><\/p>/g, "");
+            html = html.replace(/\n{2,}/g, "\n");
+
+            return html;
+        }
+
+        function copyMarkdown() {
+            navigator.clipboard.writeText(currentReport).then(() => {
+                const btn = document.getElementById("btn-copy");
+                btn.textContent = "コピーしました!";
+                btn.classList.add("copied");
+                setTimeout(() => {
+                    btn.textContent = "Markdownをコピー";
+                    btn.classList.remove("copied");
+                }, 2000);
+            });
+        }
+
+        function downloadMarkdown() {
+            const blob = new Blob([currentReport], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${currentTitle}_広報レポート.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleView() {
+            showingRaw = !showingRaw;
+            const preview = document.getElementById("report-preview");
+            const raw = document.getElementById("raw-markdown");
+            const btn = document.getElementById("btn-toggle");
+
+            if (showingRaw) {
+                preview.style.display = "none";
+                raw.classList.add("active");
+                btn.textContent = "プレビューに戻す";
+            } else {
+                preview.style.display = "block";
+                raw.classList.remove("active");
+                btn.textContent = "Markdown原文を表示";
+            }
+        }
+    </script>
+</body>
+</html>
