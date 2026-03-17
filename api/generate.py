@@ -1,4 +1,4 @@
-"""Vercel Serverless Function: アニメ広報レポート生成API"""
+"""Vercel Serverless Function: アニメ広報レポート生成API（SSE対応）"""
 
 import json
 import time
@@ -30,7 +30,6 @@ MEDIA_MAP = {
     "hobby.watch.impress.co.jp": "HOBBY Watch",
     "av.watch.impress.co.jp": "AV Watch",
     "itmedia.co.jp": "ITmedia",
-    "mynavinews.com": "マイナビニュース",
     "news.mynavi.jp": "マイナビニュース",
     "gamer.ne.jp": "Gamer",
     "comic-walker.com": "カドコミ",
@@ -54,17 +53,14 @@ def get_domain(url):
     return match.group(1) if match else ""
 
 
-def search_ddg(query, max_results=10, retries=3):
+def search_ddg(query, max_results=10, retries=2):
     for attempt in range(retries + 1):
         try:
             with DDGS() as ddgs:
-                results = list(ddgs.text(query, region="jp-jp", max_results=max_results))
-            return results
+                return list(ddgs.text(query, region="jp-jp", max_results=max_results))
         except Exception as e:
-            print(f"Search attempt {attempt + 1} failed for '{query}': {e}")
             if attempt < retries:
-                wait = 5 * (attempt + 1)
-                time.sleep(wait)
+                time.sleep(3 * (attempt + 1))
     return []
 
 
@@ -98,41 +94,6 @@ def classify_result(url, title, body, anime_title):
         return "media", {"media": domain, "title": title, "url": url, "body": body}
 
     return None, None
-
-
-def collect_all_results(anime_title):
-    press_releases, media_coverage, sns_posts, info_pages = [], [], [], []
-    seen_urls = set()
-
-    queries = [
-        f'"{anime_title}" アニメ',
-        f'"{anime_title}" アニメ化',
-        f'"{anime_title}" プレスリリース OR ニュース OR 発表',
-        f'{anime_title} site:x.com OR site:twitter.com',
-    ]
-
-    for i, query in enumerate(queries):
-        if i > 0:
-            time.sleep(5)
-        results = search_ddg(query, max_results=25)
-
-        for r in results:
-            url = r.get("href", "")
-            if url in seen_urls:
-                continue
-            seen_urls.add(url)
-
-            category, item = classify_result(url, r.get("title", ""), r.get("body", ""), anime_title)
-            if category == "press_release":
-                press_releases.append(item)
-            elif category == "media":
-                media_coverage.append(item)
-            elif category == "sns":
-                sns_posts.append(item)
-            elif category == "info":
-                info_pages.append(item)
-
-    return press_releases, media_coverage, sns_posts, info_pages
 
 
 def generate_report(anime_title, press_releases, media_coverage, sns_posts, info_pages):
@@ -208,10 +169,9 @@ def generate_report(anime_title, press_releases, media_coverage, sns_posts, info
 
     lines.append("---\n")
     lines.append("## 注記\n")
-    lines.append("- X（Twitter）のエンゲージメント数値（いいね・RT・インプレッション）はWeb検索では取得できません。手動またはX API経由での確認が必要です。")
+    lines.append("- X（Twitter）のエンゲージメント数値（いいね・RT・インプレッション）はWeb検索では取得できません。")
     lines.append("- PR TIMESのPV数は管理画面からの確認が必要です。")
-    lines.append("- 各メディア記事のPV数は各メディアのレポート機能から確認してください。")
-    lines.append("- 検索結果はDuckDuckGoのインデックスに依存しており、全ての記事を網羅できない場合があります。")
+    lines.append("- 検索結果はDuckDuckGoのインデックスに依存しています。")
     lines.append("")
     lines.append("---\n")
     lines.append(f"*本レポートは自動検索により {now} に生成されました。*")
@@ -227,40 +187,75 @@ class handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
-            self.send_response(400)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            self._send_json(400, {"error": "Invalid JSON"})
             return
 
         anime_title = data.get("title", "").strip()
         if not anime_title:
-            self.send_response(400)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "アニメタイトルを入力してください"}).encode())
+            self._send_json(400, {"error": "アニメタイトルを入力してください"})
             return
 
-        try:
-            pr, media, sns, info = collect_all_results(anime_title)
-            report = generate_report(anime_title, pr, media, sns, info)
+        # SSEでストリーミング
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
 
-            result = json.dumps({
-                "report": report,
-                "stats": {
-                    "press_releases": len(pr),
-                    "media_coverage": len(media),
-                    "sns_posts": len([s for s in sns if s["is_post"]]),
-                    "info_pages": len(info),
-                }
-            }, ensure_ascii=False)
+        press_releases, media_coverage, sns_posts, info_pages = [], [], [], []
+        seen_urls = set()
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(result.encode("utf-8"))
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": f"検索中にエラーが発生しました: {str(e)}"}, ensure_ascii=False).encode("utf-8"))
+        steps = [
+            ("アニメ関連記事を検索中...", f'"{anime_title}" アニメ'),
+            ("アニメ化ニュースを検索中...", f'"{anime_title}" アニメ化'),
+            ("プレスリリースを検索中...", f'"{anime_title}" プレスリリース OR ニュース OR 発表'),
+            ("SNS投稿を検索中...", f'{anime_title} site:x.com OR site:twitter.com'),
+        ]
+
+        for i, (label, query) in enumerate(steps):
+            self._send_sse({"type": "progress", "step": i + 1, "total": len(steps), "message": label})
+
+            if i > 0:
+                time.sleep(3)
+
+            results = search_ddg(query, max_results=20)
+
+            for r in results:
+                url = r.get("href", "")
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                category, item = classify_result(url, r.get("title", ""), r.get("body", ""), anime_title)
+                if category == "press_release":
+                    press_releases.append(item)
+                elif category == "media":
+                    media_coverage.append(item)
+                elif category == "sns":
+                    sns_posts.append(item)
+                elif category == "info":
+                    info_pages.append(item)
+
+        self._send_sse({"type": "progress", "step": len(steps), "total": len(steps), "message": "レポートを生成中..."})
+
+        report = generate_report(anime_title, press_releases, media_coverage, sns_posts, info_pages)
+
+        self._send_sse({
+            "type": "done",
+            "report": report,
+            "stats": {
+                "press_releases": len(press_releases),
+                "media_coverage": len(media_coverage),
+                "sns_posts": len([s for s in sns_posts if s["is_post"]]),
+                "info_pages": len(info_pages),
+            }
+        })
+
+    def _send_sse(self, data):
+        msg = f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+        self.wfile.write(msg.encode("utf-8"))
+        self.wfile.flush()
+
+    def _send_json(self, status, data):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))

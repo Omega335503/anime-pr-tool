@@ -126,6 +126,31 @@
         .loading-text {
             color: #a1a1aa;
             font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            background: #27272a;
+            border-radius: 6px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #6366f1;
+            border-radius: 6px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-step {
+            color: #52525b;
+            font-size: 12px;
+            margin-top: 8px;
         }
 
         .result-section {
@@ -269,7 +294,11 @@
 
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p class="loading-text" id="loading-text">検索中... メディアを巡回しています（30秒〜1分ほどかかります）</p>
+            <p class="loading-text" id="loading-text">検索を開始しています...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <p class="progress-step" id="progress-step">0 / 4</p>
         </div>
 
         <div class="result-section" id="result-section">
@@ -327,6 +356,9 @@
             loading.classList.add("active");
             result.classList.remove("active");
             errorMsg.classList.remove("active");
+            document.getElementById("progress-bar").style.width = "0%";
+            document.getElementById("progress-step").textContent = "0 / 4";
+            document.getElementById("loading-text").textContent = "検索を開始しています...";
 
             try {
                 const res = await fetch("/api/generate", {
@@ -335,25 +367,44 @@
                     body: JSON.stringify({ title }),
                 });
 
-                const data = await res.json();
-
                 if (!res.ok) {
-                    throw new Error(data.error || "エラーが発生しました");
+                    const err = await res.json();
+                    throw new Error(err.error || "エラーが発生しました");
                 }
 
-                currentReport = data.report;
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
 
-                // Stats
-                document.getElementById("stat-pr").textContent = data.stats.press_releases;
-                document.getElementById("stat-media").textContent = data.stats.media_coverage;
-                document.getElementById("stat-sns").textContent = data.stats.sns_posts;
-                document.getElementById("stat-info").textContent = data.stats.info_pages;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                // Render markdown
-                document.getElementById("report-preview").innerHTML = renderMarkdown(data.report);
-                document.getElementById("raw-markdown").textContent = data.report;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop();
 
-                result.classList.add("active");
+                    for (const line of lines) {
+                        if (!line.startsWith("data: ")) continue;
+                        const data = JSON.parse(line.slice(6));
+
+                        if (data.type === "progress") {
+                            const pct = Math.round((data.step / data.total) * 100);
+                            document.getElementById("progress-bar").style.width = pct + "%";
+                            document.getElementById("progress-step").textContent = data.step + " / " + data.total;
+                            document.getElementById("loading-text").textContent = data.message;
+                        } else if (data.type === "done") {
+                            currentReport = data.report;
+                            document.getElementById("stat-pr").textContent = data.stats.press_releases;
+                            document.getElementById("stat-media").textContent = data.stats.media_coverage;
+                            document.getElementById("stat-sns").textContent = data.stats.sns_posts;
+                            document.getElementById("stat-info").textContent = data.stats.info_pages;
+                            document.getElementById("report-preview").innerHTML = renderMarkdown(data.report);
+                            document.getElementById("raw-markdown").textContent = data.report;
+                            result.classList.add("active");
+                        }
+                    }
+                }
             } catch (e) {
                 errorMsg.textContent = e.message;
                 errorMsg.classList.add("active");

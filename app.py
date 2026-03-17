@@ -1,14 +1,14 @@
-"""アニメ広報レポート自動生成ツール"""
+"""アニメ広報レポート自動生成ツール（SSEストリーミング対応）"""
 
 import time
 import re
+import json
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, Response, stream_with_context
 from duckduckgo_search import DDGS
 
 app = Flask(__name__)
 
-# ドメイン→メディア名のマッピング
 MEDIA_MAP = {
     "natalie.mu": "コミックナタリー",
     "dengekionline.com": "電撃オンライン",
@@ -31,7 +31,6 @@ MEDIA_MAP = {
     "hobby.watch.impress.co.jp": "HOBBY Watch",
     "av.watch.impress.co.jp": "AV Watch",
     "itmedia.co.jp": "ITmedia",
-    "mynavinews.com": "マイナビニュース",
     "news.mynavi.jp": "マイナビニュース",
     "gamer.ne.jp": "Gamer",
     "comic-walker.com": "カドコミ",
@@ -47,120 +46,59 @@ PR_DOMAINS = {
 }
 
 SNS_DOMAINS = {"x.com", "twitter.com"}
-
 INFO_DOMAINS = {"dic.pixiv.net", "ja.wikipedia.org", "anidb.net", "myanimelist.net"}
 
 
 def get_domain(url):
-    """URLからドメインを抽出"""
     match = re.search(r'https?://(?:www\.)?([^/]+)', url)
     return match.group(1) if match else ""
 
 
-def search_ddg(query, max_results=10, retries=3):
-    """DuckDuckGoで検索（リトライ付き）"""
+def search_ddg(query, max_results=10, retries=2):
     for attempt in range(retries + 1):
         try:
             with DDGS() as ddgs:
-                results = list(ddgs.text(query, region="jp-jp", max_results=max_results))
-            return results
+                return list(ddgs.text(query, region="jp-jp", max_results=max_results))
         except Exception as e:
-            print(f"Search attempt {attempt + 1} failed for '{query}': {e}")
             if attempt < retries:
-                wait = 5 * (attempt + 1)
-                print(f"Waiting {wait}s before retry...")
-                time.sleep(wait)
+                time.sleep(3 * (attempt + 1))
     return []
 
 
 def classify_result(url, title, body, anime_title):
-    """検索結果をカテゴリ別に分類"""
     domain = get_domain(url)
     clean_anime = anime_title.replace(" ", "").replace("　", "")
-
-    # アニメタイトルとの関連性チェック
     clean_title = title.replace(" ", "").replace("　", "")
     clean_body = body.replace(" ", "").replace("　", "")
-    is_relevant = clean_anime in clean_title or clean_anime in clean_body
 
-    if not is_relevant:
+    if clean_anime not in clean_title and clean_anime not in clean_body:
         return None, None
 
-    # プレスリリース
     for pr_domain, pr_name in PR_DOMAINS.items():
         if pr_domain in domain:
             return "press_release", {"source": pr_name, "title": title, "url": url, "body": body}
 
-    # SNS
     if any(sns in domain for sns in SNS_DOMAINS):
         is_post = "/status/" in url
         account_match = re.search(r'(?:x\.com|twitter\.com)/(\w+)', url)
         account = f"@{account_match.group(1)}" if account_match else ""
         return "sns", {"account": account, "title": title, "url": url, "is_post": is_post, "body": body}
 
-    # 情報ページ
     if any(info in domain for info in INFO_DOMAINS):
         return "info", {"source": title, "url": url, "body": body}
 
-    # メディア掲載
     for media_domain, media_name in MEDIA_MAP.items():
         if media_domain in domain:
             return "media", {"media": media_name, "title": title, "url": url, "body": body}
 
-    # 未知のニュースサイト（ドメインからメディア名を推定）
     if any(kw in url for kw in ["/news/", "/article/", "/press/"]):
         return "media", {"media": domain, "title": title, "url": url, "body": body}
 
     return None, None
 
 
-def collect_all_results(anime_title):
-    """少数の広い検索クエリで全カテゴリのデータを一括収集"""
-    press_releases = []
-    media_coverage = []
-    sns_posts = []
-    info_pages = []
-    seen_urls = set()
-
-    # 検索クエリリスト（少数に絞って、レート制限を回避）
-    queries = [
-        f'"{anime_title}" アニメ',
-        f'"{anime_title}" アニメ化',
-        f'"{anime_title}" プレスリリース OR ニュース OR 発表',
-        f'{anime_title} site:x.com OR site:twitter.com',
-    ]
-
-    for i, query in enumerate(queries):
-        if i > 0:
-            time.sleep(5)  # レート制限対策（クエリ間5秒）
-        results = search_ddg(query, max_results=25)
-
-        for r in results:
-            url = r.get("href", "")
-            if url in seen_urls:
-                continue
-            seen_urls.add(url)
-
-            title = r.get("title", "")
-            body = r.get("body", "")
-
-            category, item = classify_result(url, title, body, anime_title)
-            if category == "press_release":
-                press_releases.append(item)
-            elif category == "media":
-                media_coverage.append(item)
-            elif category == "sns":
-                sns_posts.append(item)
-            elif category == "info":
-                info_pages.append(item)
-
-    return press_releases, media_coverage, sns_posts, info_pages
-
-
 def generate_report(anime_title, press_releases, media_coverage, sns_posts, info_pages):
-    """Markdownレポートを生成"""
     now = datetime.now().strftime("%Y年%m月%d日")
-
     lines = []
     lines.append(f"# 『{anime_title}』 広報レポート\n")
     lines.append(f"**作成日:** {now}")
@@ -168,34 +106,31 @@ def generate_report(anime_title, press_releases, media_coverage, sns_posts, info
     lines.append("")
     lines.append("---\n")
 
-    # プレスリリース
     lines.append("## 1. プレスリリース\n")
     if press_releases:
         lines.append("| # | 配信元 | タイトル | URL |")
         lines.append("|---|--------|---------|-----|")
         for i, pr in enumerate(press_releases, 1):
-            title_short = pr["title"][:60] + "..." if len(pr["title"]) > 60 else pr["title"]
-            lines.append(f'| {i} | {pr["source"]} | {title_short} | {pr["url"]} |')
+            t = pr["title"][:60] + "..." if len(pr["title"]) > 60 else pr["title"]
+            lines.append(f'| {i} | {pr["source"]} | {t} | {pr["url"]} |')
     else:
         lines.append("該当するプレスリリースは見つかりませんでした。\n")
     lines.append("")
 
-    # メディア掲載
     lines.append("---\n")
     lines.append("## 2. メディア掲載一覧\n")
     if media_coverage:
         lines.append("| # | メディア名 | 記事タイトル | URL |")
         lines.append("|---|----------|------------|-----|")
         for i, mc in enumerate(media_coverage, 1):
-            title_short = mc["title"][:50] + "..." if len(mc["title"]) > 50 else mc["title"]
-            lines.append(f'| {i} | {mc["media"]} | {title_short} | {mc["url"]} |')
+            t = mc["title"][:50] + "..." if len(mc["title"]) > 50 else mc["title"]
+            lines.append(f'| {i} | {mc["media"]} | {t} | {mc["url"]} |')
         lines.append("")
         lines.append(f"**掲載メディア数: {len(set(mc['media'] for mc in media_coverage))}媒体 / 記事数: {len(media_coverage)}件**")
     else:
         lines.append("該当するメディア掲載は見つかりませんでした。\n")
     lines.append("")
 
-    # SNS
     lines.append("---\n")
     lines.append("## 3. SNS（X / Twitter）\n")
     posts = [s for s in sns_posts if s["is_post"]]
@@ -206,8 +141,8 @@ def generate_report(anime_title, press_releases, media_coverage, sns_posts, info
         lines.append("| # | アカウント | 内容 | URL |")
         lines.append("|---|----------|------|-----|")
         for i, p in enumerate(posts, 1):
-            body_short = p["body"][:40] + "..." if len(p["body"]) > 40 else p["body"]
-            lines.append(f'| {i} | {p["account"]} | {body_short} | {p["url"]} |')
+            b = p["body"][:40] + "..." if len(p["body"]) > 40 else p["body"]
+            lines.append(f'| {i} | {p["account"]} | {b} | {p["url"]} |')
     else:
         lines.append("関連投稿は検索で見つかりませんでした。\n")
 
@@ -217,7 +152,6 @@ def generate_report(anime_title, press_releases, media_coverage, sns_posts, info
             lines.append(f'- {p["account"]}: {p["url"]}')
     lines.append("")
 
-    # その他
     if info_pages:
         lines.append("---\n")
         lines.append("## 4. 関連情報ページ\n")
@@ -225,23 +159,20 @@ def generate_report(anime_title, press_releases, media_coverage, sns_posts, info
             lines.append(f'- [{ip["source"]}]({ip["url"]})')
         lines.append("")
 
-    # サマリー
     lines.append("---\n")
     lines.append("## サマリー\n")
     lines.append(f"- プレスリリース: **{len(press_releases)}件**")
-    media_count = len(set(mc["media"] for mc in media_coverage)) if media_coverage else 0
-    lines.append(f"- メディア掲載: **{media_count}媒体 / {len(media_coverage)}記事**")
+    mc_count = len(set(mc["media"] for mc in media_coverage)) if media_coverage else 0
+    lines.append(f"- メディア掲載: **{mc_count}媒体 / {len(media_coverage)}記事**")
     lines.append(f"- SNS投稿: **{len(posts)}件**")
     lines.append(f"- 関連情報ページ: **{len(info_pages)}件**")
     lines.append("")
 
-    # 注記
     lines.append("---\n")
     lines.append("## 注記\n")
-    lines.append("- X（Twitter）のエンゲージメント数値（いいね・RT・インプレッション）はWeb検索では取得できません。手動またはX API経由での確認が必要です。")
+    lines.append("- X（Twitter）のエンゲージメント数値（いいね・RT・インプレッション）はWeb検索では取得できません。")
     lines.append("- PR TIMESのPV数は管理画面からの確認が必要です。")
-    lines.append("- 各メディア記事のPV数は各メディアのレポート機能から確認してください。")
-    lines.append("- 検索結果はDuckDuckGoのインデックスに依存しており、全ての記事を網羅できない場合があります。")
+    lines.append("- 検索結果はDuckDuckGoのインデックスに依存しています。")
     lines.append("")
     lines.append("---\n")
     lines.append(f"*本レポートは自動検索により {now} に生成されました。*")
@@ -260,24 +191,49 @@ def generate():
     anime_title = data.get("title", "").strip()
 
     if not anime_title:
-        return jsonify({"error": "アニメタイトルを入力してください"}), 400
+        return json.dumps({"error": "アニメタイトルを入力してください"}), 400
 
-    try:
-        press_releases, media_coverage, sns_posts, info_pages = collect_all_results(anime_title)
+    def stream():
+        press_releases, media_coverage, sns_posts, info_pages = [], [], [], []
+        seen_urls = set()
+
+        steps = [
+            ("アニメ関連記事を検索中...", f'"{anime_title}" アニメ'),
+            ("アニメ化ニュースを検索中...", f'"{anime_title}" アニメ化'),
+            ("プレスリリースを検索中...", f'"{anime_title}" プレスリリース OR ニュース OR 発表'),
+            ("SNS投稿を検索中...", f'{anime_title} site:x.com OR site:twitter.com'),
+        ]
+
+        for i, (label, query) in enumerate(steps):
+            yield f"data: {json.dumps({'type': 'progress', 'step': i + 1, 'total': len(steps), 'message': label}, ensure_ascii=False)}\n\n"
+
+            if i > 0:
+                time.sleep(3)
+
+            results = search_ddg(query, max_results=20)
+
+            for r in results:
+                url = r.get("href", "")
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                category, item = classify_result(url, r.get("title", ""), r.get("body", ""), anime_title)
+                if category == "press_release":
+                    press_releases.append(item)
+                elif category == "media":
+                    media_coverage.append(item)
+                elif category == "sns":
+                    sns_posts.append(item)
+                elif category == "info":
+                    info_pages.append(item)
+
+        yield f"data: {json.dumps({'type': 'progress', 'step': len(steps), 'total': len(steps), 'message': 'レポートを生成中...'}, ensure_ascii=False)}\n\n"
 
         report = generate_report(anime_title, press_releases, media_coverage, sns_posts, info_pages)
 
-        return jsonify({
-            "report": report,
-            "stats": {
-                "press_releases": len(press_releases),
-                "media_coverage": len(media_coverage),
-                "sns_posts": len([s for s in sns_posts if s["is_post"]]),
-                "info_pages": len(info_pages),
-            }
-        })
-    except Exception as e:
-        return jsonify({"error": f"検索中にエラーが発生しました: {str(e)}"}), 500
+        yield f"data: {json.dumps({'type': 'done', 'report': report, 'stats': {'press_releases': len(press_releases), 'media_coverage': len(media_coverage), 'sns_posts': len([s for s in sns_posts if s['is_post']]), 'info_pages': len(info_pages)}}, ensure_ascii=False)}\n\n"
+
+    return Response(stream_with_context(stream()), content_type="text/event-stream")
 
 
 if __name__ == "__main__":
