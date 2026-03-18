@@ -9,6 +9,10 @@
       }
     },
     {
+      "src": "api/csv_parse.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "public/**",
       "use": "@vercel/static"
     }
@@ -17,6 +21,10 @@
     {
       "src": "/api/generate",
       "dest": "/api/generate.py"
+    },
+    {
+      "src": "/api/csv_parse",
+      "dest": "/api/csv_parse.py"
     },
     {
       "src": "/(.*)",

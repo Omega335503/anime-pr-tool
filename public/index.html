@@ -259,6 +259,88 @@
             display: block;
         }
 
+        .csv-section {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .csv-section h2 {
+            font-size: 16px;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .csv-section .hint {
+            font-size: 12px;
+            color: #52525b;
+            margin-bottom: 12px;
+        }
+
+        .csv-drop {
+            border: 2px dashed #3f3f46;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            color: #71717a;
+            font-size: 14px;
+        }
+
+        .csv-drop:hover, .csv-drop.dragover {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .csv-drop.loaded {
+            border-color: #059669;
+            background: rgba(5, 150, 105, 0.05);
+            color: #6ee7b7;
+        }
+
+        .csv-drop input[type="file"] { display: none; }
+
+        .csv-stats {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .csv-stats.active { display: block; }
+
+        .csv-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .csv-stat {
+            background: #09090b;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .csv-stat .val {
+            font-size: 18px;
+            font-weight: 700;
+            color: #34d399;
+        }
+
+        .csv-stat .lbl {
+            font-size: 11px;
+            color: #71717a;
+            margin-top: 2px;
+        }
+
+        .csv-top-tweets { font-size: 13px; }
+        .csv-top-tweets table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .csv-top-tweets th { background: #27272a; padding: 6px 8px; text-align: left; font-size: 12px; }
+        .csv-top-tweets td { padding: 6px 8px; border-bottom: 1px solid #27272a; font-size: 12px; }
+
         .error-msg {
             background: #451a1a;
             border: 1px solid #7f1d1d;
@@ -287,6 +369,22 @@
             </div>
             <div class="form-group">
                 <button class="btn-generate" id="btn-generate" onclick="generateReport()">レポートを生成</button>
+            </div>
+        </div>
+
+        <div class="csv-section">
+            <h2>X (Twitter) Analytics CSV</h2>
+            <p class="hint">X Analytics からエクスポートしたCSVをドロップまたはクリックで読み込み（任意）</p>
+            <div class="csv-drop" id="csv-drop" onclick="document.getElementById('csv-file').click()">
+                CSVファイルをドロップ または クリックして選択
+                <input type="file" id="csv-file" accept=".csv">
+            </div>
+            <div class="csv-stats" id="csv-stats">
+                <div class="csv-stats-grid" id="csv-stats-grid"></div>
+                <details class="csv-top-tweets">
+                    <summary style="cursor:pointer;color:#a1a1aa;font-size:13px">トップツイート（いいね数順）</summary>
+                    <div id="csv-top-tweets-table"></div>
+                </details>
             </div>
         </div>
 
@@ -336,6 +434,67 @@
         let currentReport = "";
         let currentTitle = "";
         let showingRaw = false;
+        let csvData = null;
+
+        // CSV drag & drop
+        const csvDrop = document.getElementById("csv-drop");
+        const csvFile = document.getElementById("csv-file");
+
+        csvDrop.addEventListener("dragover", e => { e.preventDefault(); csvDrop.classList.add("dragover"); });
+        csvDrop.addEventListener("dragleave", () => csvDrop.classList.remove("dragover"));
+        csvDrop.addEventListener("drop", e => {
+            e.preventDefault();
+            csvDrop.classList.remove("dragover");
+            if (e.dataTransfer.files.length) handleCsvFile(e.dataTransfer.files[0]);
+        });
+        csvFile.addEventListener("change", e => {
+            if (e.target.files.length) handleCsvFile(e.target.files[0]);
+        });
+
+        async function handleCsvFile(file) {
+            const text = await file.text();
+            try {
+                const res = await fetch("/api/csv_parse", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ csv: text }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                csvData = data;
+                csvDrop.textContent = file.name + " (読み込み済み)";
+                csvDrop.classList.add("loaded");
+
+                const s = data.summary;
+                const grid = document.getElementById("csv-stats-grid");
+                grid.innerHTML = [
+                    ["インプレッション", s.total_impressions.toLocaleString()],
+                    ["エンゲージメント", s.total_engagements.toLocaleString()],
+                    ["いいね", s.total_likes.toLocaleString()],
+                    ["RT", s.total_retweets.toLocaleString()],
+                    ["リプライ", s.total_replies.toLocaleString()],
+                    ["URLクリック", s.total_url_clicks.toLocaleString()],
+                    ["ツイート数", s.tweet_count],
+                    ["エンゲージメント率", s.engagement_rate + "%"],
+                ].map(([lbl, val]) => `<div class="csv-stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`).join("");
+
+                const tbl = document.getElementById("csv-top-tweets-table");
+                if (data.top_tweets.length) {
+                    let html = "<table><thead><tr><th>ツイート</th><th>いいね</th><th>RT</th><th>IMP</th></tr></thead><tbody>";
+                    data.top_tweets.slice(0, 5).forEach(t => {
+                        html += `<tr><td>${t.text.replace(/</g,"&lt;")}</td><td>${t.likes}</td><td>${t.retweets}</td><td>${t.impressions.toLocaleString()}</td></tr>`;
+                    });
+                    html += "</tbody></table>";
+                    tbl.innerHTML = html;
+                }
+
+                document.getElementById("csv-stats").classList.add("active");
+            } catch (e) {
+                csvDrop.textContent = "エラー: " + e.message;
+                csvDrop.classList.remove("loaded");
+            }
+        }
 
         // Enter キーで生成
         document.getElementById("anime-title").addEventListener("keydown", function(e) {
@@ -394,13 +553,18 @@
                             document.getElementById("progress-step").textContent = data.step + " / " + data.total;
                             document.getElementById("loading-text").textContent = data.message;
                         } else if (data.type === "done") {
-                            currentReport = data.report;
+                            let report = data.report;
+                            // CSVデータがあればレポートに統合
+                            if (csvData) {
+                                report = injectCsvSection(report, csvData);
+                            }
+                            currentReport = report;
                             document.getElementById("stat-pr").textContent = data.stats.press_releases;
                             document.getElementById("stat-media").textContent = data.stats.media_coverage;
-                            document.getElementById("stat-sns").textContent = data.stats.sns_posts;
+                            document.getElementById("stat-sns").textContent = csvData ? csvData.summary.tweet_count : data.stats.sns_posts;
                             document.getElementById("stat-info").textContent = data.stats.info_pages;
-                            document.getElementById("report-preview").innerHTML = renderMarkdown(data.report);
-                            document.getElementById("raw-markdown").textContent = data.report;
+                            document.getElementById("report-preview").innerHTML = renderMarkdown(report);
+                            document.getElementById("raw-markdown").textContent = report;
                             result.classList.add("active");
                         }
                     }
@@ -471,6 +635,34 @@
             html = html.replace(/\n{2,}/g, "\n");
 
             return html;
+        }
+
+        function injectCsvSection(report, csv) {
+            const s = csv.summary;
+            let section = "\n---\n\n## X (Twitter) アカウント分析（CSV取込）\n\n";
+            section += "| 指標 | 数値 |\n|------|------|\n";
+            section += `| ツイート数 | **${s.tweet_count}** |\n`;
+            section += `| 総インプレッション | **${s.total_impressions.toLocaleString()}** |\n`;
+            section += `| 総エンゲージメント | **${s.total_engagements.toLocaleString()}** |\n`;
+            section += `| いいね合計 | **${s.total_likes.toLocaleString()}** |\n`;
+            section += `| RT合計 | **${s.total_retweets.toLocaleString()}** |\n`;
+            section += `| リプライ合計 | **${s.total_replies.toLocaleString()}** |\n`;
+            section += `| URLクリック合計 | **${s.total_url_clicks.toLocaleString()}** |\n`;
+            section += `| 平均インプレッション | **${s.avg_impressions.toLocaleString()}** |\n`;
+            section += `| エンゲージメント率 | **${s.engagement_rate}%** |\n`;
+
+            if (csv.top_tweets && csv.top_tweets.length > 0) {
+                section += "\n### トップツイート（いいね数順）\n\n";
+                section += "| # | ツイート | いいね | RT | インプレッション |\n";
+                section += "|---|---------|-------|-----|------------------|\n";
+                csv.top_tweets.slice(0, 5).forEach((t, i) => {
+                    const txt = t.text.replace(/\|/g, "\\|").substring(0, 40);
+                    section += `| ${i+1} | ${txt}... | ${t.likes} | ${t.retweets} | ${t.impressions.toLocaleString()} |\n`;
+                });
+            }
+
+            // "## サマリー" の前に挿入
+            return report.replace(/\n---\n\n## サマリー/, section + "\n---\n\n## サマリー");
         }
 
         function copyMarkdown() {
