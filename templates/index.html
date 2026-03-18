@@ -382,7 +382,7 @@
             <div class="csv-stats" id="csv-stats">
                 <div class="csv-stats-grid" id="csv-stats-grid"></div>
                 <details class="csv-top-tweets">
-                    <summary style="cursor:pointer;color:#a1a1aa;font-size:13px">トップツイート（いいね数順）</summary>
+                    <summary style="cursor:pointer;color:#a1a1aa;font-size:13px" id="csv-detail-label">トップ日（インプレッション数順）</summary>
                     <div id="csv-top-tweets-table"></div>
                 </details>
             </div>
@@ -467,23 +467,34 @@
                 csvDrop.classList.add("loaded");
 
                 const s = data.summary;
+                const isOverview = data.csv_type === "account_overview";
                 const grid = document.getElementById("csv-stats-grid");
-                grid.innerHTML = [
+                const items = [
                     ["インプレッション", s.total_impressions.toLocaleString()],
                     ["エンゲージメント", s.total_engagements.toLocaleString()],
                     ["いいね", s.total_likes.toLocaleString()],
                     ["RT", s.total_retweets.toLocaleString()],
                     ["リプライ", s.total_replies.toLocaleString()],
-                    ["URLクリック", s.total_url_clicks.toLocaleString()],
-                    ["ツイート数", s.tweet_count],
+                    [isOverview ? "ブックマーク" : "URLクリック", s.total_url_clicks.toLocaleString()],
+                    [isOverview ? "日数" : "ツイート数", s.tweet_count],
                     ["エンゲージメント率", s.engagement_rate + "%"],
-                ].map(([lbl, val]) => `<div class="csv-stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`).join("");
+                ];
+                if (isOverview && s.total_follows) items.push(["新規フォロー", s.total_follows.toLocaleString()]);
+                if (isOverview && s.total_profile_visits) items.push(["プロフィール訪問", s.total_profile_visits.toLocaleString()]);
+                grid.innerHTML = items.map(([lbl, val]) => `<div class="csv-stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`).join("");
+
+                const detailLabel = document.getElementById("csv-detail-label");
+                detailLabel.textContent = isOverview ? "トップ日（インプレッション順）" : "トップツイート（いいね数順）";
 
                 const tbl = document.getElementById("csv-top-tweets-table");
                 if (data.top_tweets.length) {
-                    let html = "<table><thead><tr><th>ツイート</th><th>いいね</th><th>RT</th><th>IMP</th></tr></thead><tbody>";
+                    let html = isOverview
+                        ? "<table><thead><tr><th>日付</th><th>IMP</th><th>いいね</th><th>ENG</th></tr></thead><tbody>"
+                        : "<table><thead><tr><th>ツイート</th><th>いいね</th><th>RT</th><th>IMP</th></tr></thead><tbody>";
                     data.top_tweets.slice(0, 5).forEach(t => {
-                        html += `<tr><td>${t.text.replace(/</g,"&lt;")}</td><td>${t.likes}</td><td>${t.retweets}</td><td>${t.impressions.toLocaleString()}</td></tr>`;
+                        html += isOverview
+                            ? `<tr><td>${t.text}</td><td>${t.impressions.toLocaleString()}</td><td>${t.likes}</td><td>${t.engagements}</td></tr>`
+                            : `<tr><td>${t.text.replace(/</g,"&lt;")}</td><td>${t.likes}</td><td>${t.retweets}</td><td>${t.impressions.toLocaleString()}</td></tr>`;
                     });
                     html += "</tbody></table>";
                     tbl.innerHTML = html;
