@@ -93,7 +93,8 @@ def classify_result(url, title, body, anime_title):
     if any(kw in url for kw in ["/news/", "/article/", "/press/"]):
         return "media", {"media": domain, "title": title, "url": url, "body": body}
 
-    return None, None
+    # 既知カテゴリに該当しないが、アニメタイトルを含む関連ページ
+    return "info", {"source": title, "url": url, "body": body}
 
 
 def generate_report(anime_title, press_releases, media_coverage, sns_posts, info_pages):
