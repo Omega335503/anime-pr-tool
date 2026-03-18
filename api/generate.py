@@ -5,7 +5,9 @@ import time
 import re
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler
-from duckduckgo_search import DDGS
+from urllib.parse import unquote
+import requests
+from bs4 import BeautifulSoup
 
 # ドメイン→メディア名のマッピング
 MEDIA_MAP = {
@@ -53,14 +55,43 @@ def get_domain(url):
     return match.group(1) if match else ""
 
 
-def search_ddg(query, max_results=10, retries=2):
+def search_web(query, retries=2):
+    """DuckDuckGo HTML検索（requests直接、ライブラリ不使用）"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     for attempt in range(retries + 1):
         try:
-            with DDGS() as ddgs:
-                return list(ddgs.text(query, region="jp-jp", max_results=max_results))
+            r = requests.post(
+                "https://html.duckduckgo.com/html/",
+                data={"q": query, "kl": "jp-jp"},
+                headers=headers,
+                timeout=15,
+            )
+            if r.status_code != 200:
+                raise Exception(f"Status {r.status_code}")
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            results = []
+            titles = soup.select(".result__a")
+            snippets = soup.select(".result__snippet")
+
+            for i, a_tag in enumerate(titles):
+                href = a_tag.get("href", "")
+                # DuckDuckGoのリダイレクトURLから実URLを抽出
+                if "uddg=" in href:
+                    match = re.search(r'uddg=([^&]+)', href)
+                    if match:
+                        href = unquote(match.group(1))
+                title = a_tag.get_text(strip=True)
+                body = snippets[i].get_text(strip=True) if i < len(snippets) else ""
+                if href and title:
+                    results.append({"href": href, "title": title, "body": body})
+            return results
         except Exception as e:
+            print(f"Search attempt {attempt + 1} failed: {e}")
             if attempt < retries:
-                time.sleep(3 * (attempt + 1))
+                time.sleep(2 * (attempt + 1))
     return []
 
 
@@ -218,7 +249,7 @@ class handler(BaseHTTPRequestHandler):
             if i > 0:
                 time.sleep(3)
 
-            results = search_ddg(query, max_results=20)
+            results = search_web(query)
 
             for r in results:
                 url = r.get("href", "")
