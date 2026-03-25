@@ -349,6 +349,12 @@ def generate_report(anime_title, press_releases, media_coverage, sns_posts, info
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        from api.auth import require_auth
+        auth_error = require_auth(self)
+        if auth_error:
+            self._send_json(auth_error[1], auth_error[0])
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 

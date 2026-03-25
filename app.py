@@ -1,5 +1,6 @@
 """アニメ広報レポート自動生成ツール（SSEストリーミング対応・ローカル開発用）"""
 
+import os
 import time
 import re
 import json
@@ -8,8 +9,23 @@ from urllib.parse import unquote
 from flask import Flask, render_template, request, Response, stream_with_context
 import requests as http_requests
 from bs4 import BeautifulSoup
+from google import genai
 
 app = Flask(__name__)
+
+# Geminiクライアントをシングルトンで使い回す
+_gemini_client = None
+def get_gemini_client():
+    global _gemini_client
+    # GEMINI_API_KEYを明示的に使う（GOOGLE_API_KEYはSheets用）
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        return None
+    if _gemini_client is None:
+        _gemini_client = genai.Client(api_key=api_key)
+    return _gemini_client
 
 # --- generate.py と同じロジック（ローカル開発用に同期） ---
 
@@ -307,6 +323,10 @@ def index():
 
 @app.route("/api/generate", methods=["POST"])
 def generate():
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+
     data = request.get_json()
     anime_title = data.get("title", "").strip()
 
@@ -366,6 +386,418 @@ def generate():
         log(f"=== DONE: '{anime_title}' PR={len(press_releases)} Media={len(media_coverage)} SNS={len(sns_posts)} Info={len(info_pages)} ===")
 
     return Response(stream_with_context(stream()), content_type="text/event-stream")
+
+
+# ===== コンテンツ生成（content_generate.py と同じロジック） =====
+
+from api.content_generate import build_prompt
+from api.fetch_gdoc import fetch_google_doc
+from api.extract_info import build_individual_prompt, build_meta_prompt, extract_json_from_response, DOC_LABELS
+from api.auth import require_auth
+
+
+@app.route("/api/content_generate", methods=["POST"])
+def content_generate():
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+
+    data = request.get_json()
+    content_type = data.get("content_type", "").strip()
+    form_data = data.get("form_data", {})
+
+    if content_type not in ("tweet", "press_release"):
+        return json.dumps({"error": "content_type は 'tweet' または 'press_release' を指定してください"}), 400
+
+    if not form_data.get("title"):
+        return json.dumps({"error": "作品タイトルを入力してください"}), 400
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return json.dumps({"error": "GEMINI_API_KEY が設定されていません。環境変数を設定してください。"}), 500
+
+    log(f"=== CONTENT START: type={content_type} title='{form_data.get('title')}' ===")
+
+    try:
+        prompt = build_prompt(content_type, form_data)
+    except ValueError as e:
+        return json.dumps({"error": str(e)}), 400
+
+    def stream():
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Gemini APIに接続中...'}, ensure_ascii=False)}\n\n"
+
+        try:
+            client = get_gemini_client()
+
+            full_text = ""
+            response = client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            for chunk in response:
+                if chunk.text:
+                    full_text += chunk.text
+                    yield f"data: {json.dumps({'type': 'chunk', 'text': chunk.text}, ensure_ascii=False)}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done', 'full_text': full_text}, ensure_ascii=False)}\n\n"
+            log(f"=== CONTENT DONE: {len(full_text)} chars ===")
+
+        except Exception as e:
+            log(f"Error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Gemini API エラー: {str(e)}'}, ensure_ascii=False)}\n\n"
+
+    return Response(stream_with_context(stream()), content_type="text/event-stream")
+
+
+# ===== Google Docs/Sheets取得 =====
+
+@app.route("/api/fetch_gdoc", methods=["POST"])
+def api_fetch_gdoc():
+    t0 = time.time()
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+    log(f"[TIMING] fetch_gdoc auth: {time.time()-t0:.2f}s")
+
+    data = request.get_json()
+    url = data.get("url", "").strip()
+    if not url:
+        return json.dumps({"error": "URLを指定してください"}), 400
+    try:
+        t1 = time.time()
+        result = fetch_google_doc(url)
+        log(f"[TIMING] fetch_gdoc fetch: {time.time()-t1:.2f}s, content_len={len(result.get('content',''))}")
+        log(f"[TIMING] fetch_gdoc TOTAL: {time.time()-t0:.2f}s")
+        return json.dumps(result, ensure_ascii=False)
+    except ValueError as e:
+        return json.dumps({"error": str(e)}), 400
+    except Exception as e:
+        log(f"fetch_gdoc error: {e}")
+        return json.dumps({"error": f"取得エラー: {str(e)}"}), 500
+
+
+# ===== 情報抽出 =====
+
+@app.route("/api/extract_info", methods=["POST"])
+def api_extract_info():
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+
+    data = request.get_json()
+    documents = data.get("documents", {})
+
+    if not any(documents.get(k, {}).get("content") for k in ("timeline", "text_master", "budget")):
+        return json.dumps({"error": "少なくとも1つの資料が必要です"}), 400
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return json.dumps({"error": "GEMINI_API_KEY が設定されていません"}), 500
+
+    log("=== EXTRACT START ===")
+    try:
+        client = get_gemini_client()
+        structured = {}
+
+        # 各資料を個別に構造化
+        for doc_type in ("timeline", "text_master", "budget"):
+            doc = documents.get(doc_type)
+            if not doc or not doc.get("content"):
+                continue
+
+            prompt = build_individual_prompt(doc_type, doc["content"])
+            if not prompt:
+                continue
+
+            log(f"Structuring {doc_type}... ({len(doc['content'])} chars)")
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            structured[doc_type] = response.text.strip()
+            log(f"  → {len(structured[doc_type])} chars")
+
+        # 基本メタ情報を抽出
+        log("Extracting meta...")
+        meta_prompt = build_meta_prompt(documents)
+        meta_response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=meta_prompt,
+        )
+        try:
+            meta = extract_json_from_response(meta_response.text)
+        except (json.JSONDecodeError, Exception):
+            meta = {"title": "", "hashtags": "", "official_url": "", "official_x": ""}
+
+        log(f"=== EXTRACT DONE: title={meta.get('title', '?')} ===")
+
+        return json.dumps({"extracted": meta, "structured": structured}, ensure_ascii=False)
+
+    except Exception as e:
+        log(f"extract_info error: {e}")
+        return json.dumps({"error": f"抽出エラー: {str(e)}"}), 500
+
+
+# ===== 個別資料構造化 =====
+
+def parse_csv_to_table(content):
+    """CSVテキストを直接パースしてテーブルJSON構造を生成（AI不要・高速）"""
+    import csv
+    import io
+
+    reader = csv.reader(io.StringIO(content))
+    all_rows = list(reader)
+    if not all_rows:
+        return {"headers": [], "release_columns": [], "sections": []}
+
+    # ヘッダー行（1行目）
+    raw_headers = all_rows[0]
+
+    # 不要な列を検出して除外
+    skip_cols = set()
+    max_col = max(len(r) for r in all_rows) if all_rows else 0
+    for ci in range(max_col):
+        h_strip = raw_headers[ci].strip() if ci < len(raw_headers) else ''
+        # ヘッダーが空 or 「：」「:」
+        if h_strip in ('：', ':', ''):
+            col_vals = [r[ci].strip() if ci < len(r) else '' for r in all_rows[1:] if r]
+            non_empty = [v for v in col_vals if v and v not in ('：', ':', '')]
+            # 列の中身がほぼ「：」か空なら除外
+            if len(non_empty) < max(1, len(col_vals) * 0.2):
+                skip_cols.add(ci)
+
+    # フィルタリング後のヘッダー
+    headers = [h for ci, h in enumerate(raw_headers) if ci not in skip_cols]
+
+    # 解禁列を検出（ヘッダーに日付・施策名っぽいもの）
+    release_columns = []
+    for ci, h in enumerate(headers):
+        h_strip = h.strip()
+        if h_strip and h_strip != headers[0] and (
+            '月' in h_strip or '/' in h_strip or
+            h_strip.replace('.', '').isdigit() or
+            any(kw in h_strip for kw in ['PV', 'HP', '話', '放送', 'CM'])
+        ):
+            release_columns.append(ci)
+
+    # データ行をセクション分割
+    sections = []
+    current_section = {"title": "", "rows": []}
+
+    for row_idx, raw_row in enumerate(all_rows[1:]):
+        # skip_cols除外
+        row = [c for ci, c in enumerate(raw_row) if ci not in skip_cols]
+        # 列数をheadersに揃える
+        while len(row) < len(headers):
+            row.append('')
+
+        # 空行チェック → 次にセクションヘッダーが来るかもしれないのでフラグだけ立てる
+        non_empty_cells = [c.strip() for c in row if c.strip()]
+        if not non_empty_cells:
+            continue
+
+        # セクションヘッダー検出
+        # 条件: 1列目だけに短いテキストがあり、他が全部空で、●もない
+        first_val = row[0].strip()
+        other_vals = [c.strip() for c in row[1:] if c.strip()]
+        is_header_candidate = (
+            first_val
+            and not other_vals
+            and len(first_val) < 20
+            and first_val not in ('●', '⚫︎')
+            and not any(c in first_val for c in ('：', ':', '/', 'ⓒ', '©'))
+            and not any(first_val.startswith(kw) for kw in ('20', 'http'))
+        )
+        if is_header_candidate:
+            if current_section["rows"]:
+                sections.append(current_section)
+            current_section = {"title": first_val, "rows": []}
+            continue
+
+        # 通常データ行
+        current_section["rows"].append(row[:len(headers)])
+
+    # 最後のセクション
+    if current_section["rows"]:
+        sections.append(current_section)
+
+    # titleがない最初のセクションにデフォルト名
+    if sections and not sections[0]["title"]:
+        sections[0]["title"] = "作品情報"
+
+    # 全セクションの行をキーワードで再分類
+    ROW_KEYWORDS = {
+        "楽曲": ["主題歌", "オープニング", "エンディング", "OP曲", "ED曲", "挿入歌"],
+        "SNS": ["HP", " X ", "Twitter", "Instagram", "YouTube", "TikTok"],
+        "制作物": ["ビジュアル", "KV", "PV", "CM", "番宣", "キービジュアル"],
+        "権利表記": ["マルシー", "ⓒ", "©"],
+    }
+
+    # まず全行をフラットに、元のセクション情報付きで集める
+    all_categorized = {}  # {category: [rows]}
+    for section in sections:
+        for row in section["rows"]:
+            labels_text = row[0].strip() + ' ' + row[1].strip() if len(row) > 1 else row[0].strip()
+
+            # キーワードマッチ
+            matched_cat = None
+            for cat_name, keywords in ROW_KEYWORDS.items():
+                if any(kw in labels_text for kw in keywords):
+                    matched_cat = cat_name
+                    break
+
+            # 放送情報（年号+放送）→ 作品情報に統合
+            if not matched_cat and ('放送' in labels_text or '配信' in labels_text):
+                matched_cat = "作品情報"
+
+            # マルシー等を作品情報に
+            if matched_cat == "権利表記":
+                matched_cat = "作品情報"
+
+            # キーワードマッチ優先、なければ元のセクション名
+            if matched_cat:
+                target = matched_cat
+            elif section["title"]:
+                # 元セクション名もキーワードで再分類
+                sec_title = section["title"]
+                if sec_title in ("X", "HP", "SNS", "Twitter"):
+                    target = "SNS"
+                elif sec_title in ("PV1", "PV2", "PV", "CM"):
+                    target = "制作物"
+                else:
+                    target = sec_title
+            else:
+                target = "その他"
+
+            if target not in all_categorized:
+                all_categorized[target] = []
+            all_categorized[target].append(row)
+
+    # セクション順序を決定
+    SECTION_ORDER = ["作品情報", "スタッフ", "キャスト", "楽曲", "SNS", "制作物", "その他"]
+    sections = []
+    seen = set()
+    for name in SECTION_ORDER:
+        if name in all_categorized:
+            sections.append({"title": name, "rows": all_categorized[name]})
+            seen.add(name)
+    # 残り
+    for name, rows in all_categorized.items():
+        if name not in seen:
+            sections.append({"title": name, "rows": rows})
+
+    # 解禁列の右側自動連鎖: ●がある列より右側は全て●にする
+    if release_columns:
+        sorted_rel = sorted(release_columns)
+        for section in sections:
+            for row in section["rows"]:
+                first_release_idx = None
+                for rc in sorted_rel:
+                    if rc < len(row) and row[rc] == '●':
+                        first_release_idx = rc
+                        break
+                if first_release_idx is not None:
+                    for rc in sorted_rel:
+                        if rc >= first_release_idx:
+                            if rc < len(row):
+                                row[rc] = '●'
+
+    return {
+        "headers": headers,
+        "release_columns": release_columns,
+        "sections": sections,
+    }
+
+
+@app.route("/api/structure_doc", methods=["POST"])
+def api_structure_doc():
+    t0 = time.time()
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+
+    data = request.get_json()
+    doc_type = data.get("doc_type", "")
+    content = data.get("content", "")
+
+    if doc_type not in ("timeline", "text_master", "budget"):
+        return json.dumps({"error": "無効なdoc_typeです"}), 400
+    if not content:
+        return json.dumps({"error": "contentが空です"}), 400
+
+    try:
+        if doc_type in ("text_master", "budget"):
+            # CSV→直接パース（AI不要・超高速）
+            t1 = time.time()
+            parsed = parse_csv_to_table(content)
+            log(f"[TIMING] structure_doc {doc_type} direct_parse: {time.time()-t1:.3f}s")
+            log(f"[TIMING] structure_doc {doc_type} TOTAL: {time.time()-t0:.3f}s")
+            return json.dumps({"structured": parsed}, ensure_ascii=False)
+        else:
+            # timeline はGemini使用
+            api_key = os.environ.get("GEMINI_API_KEY", "")
+            if not api_key:
+                return json.dumps({"error": "GEMINI_API_KEY が設定されていません"}), 500
+
+            prompt = build_individual_prompt(doc_type, content)
+            log(f"[TIMING] structure_doc {doc_type} prompt_len={len(prompt)}")
+
+            t2 = time.time()
+            client = get_gemini_client()
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            log(f"[TIMING] structure_doc {doc_type} gemini: {time.time()-t2:.2f}s")
+            log(f"[TIMING] structure_doc {doc_type} TOTAL: {time.time()-t0:.2f}s")
+
+            try:
+                parsed = extract_json_from_response(response.text)
+                return json.dumps({"structured": parsed}, ensure_ascii=False)
+            except (json.JSONDecodeError, Exception):
+                return json.dumps({"structured": response.text.strip()}, ensure_ascii=False)
+
+    except Exception as e:
+        log(f"structure_doc error: {e}")
+        return json.dumps({"error": f"構造化エラー: {str(e)}"}), 500
+
+
+# ===== メタ情報抽出 =====
+
+@app.route("/api/extract_meta", methods=["POST"])
+def api_extract_meta():
+    t0 = time.time()
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+    log(f"[TIMING] extract_meta auth: {time.time()-t0:.2f}s")
+
+    data = request.get_json()
+    documents = data.get("documents", {})
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return json.dumps({"error": "GEMINI_API_KEY が設定されていません"}), 500
+
+    try:
+        t1 = time.time()
+        prompt = build_meta_prompt(documents)
+        log(f"[TIMING] extract_meta prompt_build: {time.time()-t1:.2f}s, prompt_len={len(prompt)}")
+
+        t2 = time.time()
+        client = get_gemini_client()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+        log(f"[TIMING] extract_meta gemini_call: {time.time()-t2:.2f}s")
+        log(f"[TIMING] extract_meta TOTAL: {time.time()-t0:.2f}s")
+
+        meta = extract_json_from_response(response.text)
+        return json.dumps({"extracted": meta}, ensure_ascii=False)
+    except Exception as e:
+        log(f"extract_meta error: {e}")
+        return json.dumps({"extracted": {"title": "", "hashtags": "", "official_url": "", "official_x": ""}}, ensure_ascii=False)
 
 
 if __name__ == "__main__":

@@ -166,6 +166,12 @@ def parse_x_analytics_csv(csv_text):
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        from api.auth import require_auth
+        auth_error = require_auth(self)
+        if auth_error:
+            self._send(auth_error[1], auth_error[0])
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 

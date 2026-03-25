@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>アニメ広報レポート生成ツール</title>
+    <title>アニメ広報ツール</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -20,19 +21,33 @@
             padding: 40px 20px;
         }
 
-        h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: #fff;
-        }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+        .subtitle { color: #71717a; font-size: 14px; margin-bottom: 24px; }
 
-        .subtitle {
+        /* タブ */
+        .tab-nav {
+            display: flex;
+            gap: 0;
+            margin-bottom: 28px;
+            border-bottom: 1px solid #27272a;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
             color: #71717a;
             font-size: 14px;
-            margin-bottom: 32px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
         }
+        .tab-btn:hover { color: #a1a1aa; }
+        .tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
 
+        /* フォーム */
         .input-section {
             background: #18181b;
             border: 1px solid #27272a;
@@ -40,24 +55,12 @@
             padding: 24px;
             margin-bottom: 24px;
         }
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+        label { display: block; font-size: 13px; font-weight: 600; color: #a1a1aa; margin-bottom: 6px; }
+        label .required { color: #ef4444; margin-left: 2px; }
 
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group:last-child {
-            margin-bottom: 0;
-        }
-
-        label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: #a1a1aa;
-            margin-bottom: 6px;
-        }
-
-        input[type="text"] {
+        input[type="text"], textarea, select {
             width: 100%;
             padding: 10px 14px;
             background: #09090b;
@@ -65,17 +68,14 @@
             border-radius: 8px;
             color: #fff;
             font-size: 15px;
+            font-family: inherit;
             outline: none;
             transition: border-color 0.2s;
         }
-
-        input[type="text"]:focus {
-            border-color: #6366f1;
-        }
-
-        input[type="text"]::placeholder {
-            color: #52525b;
-        }
+        input[type="text"]:focus, textarea:focus, select:focus { border-color: #6366f1; }
+        input[type="text"]::placeholder, textarea::placeholder { color: #52525b; }
+        textarea { resize: vertical; min-height: 80px; }
+        select { cursor: pointer; }
 
         .btn-generate {
             width: 100%;
@@ -89,141 +89,51 @@
             cursor: pointer;
             transition: background 0.2s;
         }
+        .btn-generate:hover { background: #4f46e5; }
+        .btn-generate:disabled { background: #3f3f46; cursor: not-allowed; }
 
-        .btn-generate:hover {
-            background: #4f46e5;
-        }
-
-        .btn-generate:disabled {
-            background: #3f3f46;
-            cursor: not-allowed;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
+        .loading { display: none; text-align: center; padding: 40px; }
+        .loading.active { display: block; }
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #27272a;
-            border-top-color: #6366f1;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            width: 40px; height: 40px;
+            border: 3px solid #27272a; border-top-color: #6366f1;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
             margin: 0 auto 16px;
         }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            color: #a1a1aa;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: #a1a1aa; font-size: 14px; margin-bottom: 16px; }
 
         .progress-bar-container {
-            width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
-            background: #27272a;
-            border-radius: 6px;
-            height: 8px;
-            overflow: hidden;
+            width: 100%; max-width: 400px; margin: 0 auto;
+            background: #27272a; border-radius: 6px; height: 8px; overflow: hidden;
         }
+        .progress-bar { height: 100%; background: #6366f1; border-radius: 6px; transition: width 0.3s ease; width: 0%; }
+        .progress-step { color: #52525b; font-size: 12px; margin-top: 8px; }
 
-        .progress-bar {
-            height: 100%;
-            background: #6366f1;
-            border-radius: 6px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
+        .result-section { display: none; }
+        .result-section.active { display: block; }
 
-        .progress-step {
-            color: #52525b;
-            font-size: 12px;
-            margin-top: 8px;
-        }
-
-        .result-section {
-            display: none;
-        }
-
-        .result-section.active {
-            display: block;
-        }
-
-        .stats-bar {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
+        .stats-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
         .stat-card {
-            background: #18181b;
-            border: 1px solid #27272a;
-            border-radius: 8px;
-            padding: 12px 16px;
-            flex: 1;
-            min-width: 120px;
+            background: #18181b; border: 1px solid #27272a; border-radius: 8px;
+            padding: 12px 16px; flex: 1; min-width: 120px;
         }
+        .stat-card .number { font-size: 24px; font-weight: 700; color: #6366f1; }
+        .stat-card .label { font-size: 12px; color: #71717a; margin-top: 2px; }
 
-        .stat-card .number {
-            font-size: 24px;
-            font-weight: 700;
-            color: #6366f1;
-        }
-
-        .stat-card .label {
-            font-size: 12px;
-            color: #71717a;
-            margin-top: 2px;
-        }
-
-        .actions-bar {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
+        .actions-bar { display: flex; gap: 8px; margin-bottom: 16px; }
         .btn-action {
-            padding: 8px 16px;
-            background: #27272a;
-            color: #e4e4e7;
-            border: 1px solid #3f3f46;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s;
+            padding: 8px 16px; background: #27272a; color: #e4e4e7;
+            border: 1px solid #3f3f46; border-radius: 6px; font-size: 13px;
+            cursor: pointer; transition: background 0.2s;
         }
-
-        .btn-action:hover {
-            background: #3f3f46;
-        }
-
-        .btn-action.copied {
-            background: #065f46;
-            border-color: #059669;
-            color: #6ee7b7;
-        }
+        .btn-action:hover { background: #3f3f46; }
+        .btn-action.copied { background: #065f46; border-color: #059669; color: #6ee7b7; }
 
         .report-preview {
-            background: #18181b;
-            border: 1px solid #27272a;
-            border-radius: 12px;
-            padding: 24px;
-            overflow-x: auto;
+            background: #18181b; border: 1px solid #27272a; border-radius: 12px;
+            padding: 24px; overflow-x: auto;
         }
-
         .report-preview h1 { font-size: 20px; margin-bottom: 12px; color: #fff; }
         .report-preview h2 { font-size: 17px; margin: 20px 0 10px; color: #e4e4e7; border-bottom: 1px solid #27272a; padding-bottom: 6px; }
         .report-preview h3 { font-size: 15px; margin: 14px 0 8px; color: #d4d4d8; }
@@ -240,232 +150,1530 @@
         .report-preview em { color: #71717a; font-style: italic; }
 
         .raw-markdown {
-            display: none;
-            background: #09090b;
-            border: 1px solid #3f3f46;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: #a1a1aa;
-            max-height: 600px;
-            overflow-y: auto;
+            display: none; background: #09090b; border: 1px solid #3f3f46; border-radius: 8px;
+            padding: 16px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+            line-height: 1.6; white-space: pre-wrap; word-break: break-all; color: #a1a1aa;
+            max-height: 600px; overflow-y: auto;
         }
-
-        .raw-markdown.active {
-            display: block;
-        }
+        .raw-markdown.active { display: block; }
 
         .csv-section {
-            background: #18181b;
-            border: 1px solid #27272a;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
+            background: #18181b; border: 1px solid #27272a; border-radius: 12px;
+            padding: 24px; margin-bottom: 24px;
         }
-
-        .csv-section h2 {
-            font-size: 16px;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-
-        .csv-section .hint {
-            font-size: 12px;
-            color: #52525b;
-            margin-bottom: 12px;
-        }
-
+        .csv-section h2 { font-size: 16px; color: #fff; margin-bottom: 4px; }
+        .csv-section .hint { font-size: 12px; color: #52525b; margin-bottom: 12px; }
         .csv-drop {
-            border: 2px dashed #3f3f46;
-            border-radius: 8px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            color: #71717a;
-            font-size: 14px;
+            border: 2px dashed #3f3f46; border-radius: 8px; padding: 24px; text-align: center;
+            cursor: pointer; transition: border-color 0.2s, background 0.2s; color: #71717a; font-size: 14px;
         }
-
-        .csv-drop:hover, .csv-drop.dragover {
-            border-color: #6366f1;
-            background: rgba(99, 102, 241, 0.05);
-        }
-
-        .csv-drop.loaded {
-            border-color: #059669;
-            background: rgba(5, 150, 105, 0.05);
-            color: #6ee7b7;
-        }
-
+        .csv-drop:hover, .csv-drop.dragover { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
+        .csv-drop.loaded { border-color: #059669; background: rgba(5, 150, 105, 0.05); color: #6ee7b7; }
         .csv-drop input[type="file"] { display: none; }
-
-        .csv-stats {
-            display: none;
-            margin-top: 16px;
-        }
-
+        .csv-stats { display: none; margin-top: 16px; }
         .csv-stats.active { display: block; }
-
-        .csv-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .csv-stat {
-            background: #09090b;
-            border-radius: 6px;
-            padding: 10px;
-            text-align: center;
-        }
-
-        .csv-stat .val {
-            font-size: 18px;
-            font-weight: 700;
-            color: #34d399;
-        }
-
-        .csv-stat .lbl {
-            font-size: 11px;
-            color: #71717a;
-            margin-top: 2px;
-        }
-
+        .csv-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-bottom: 12px; }
+        .csv-stat { background: #09090b; border-radius: 6px; padding: 10px; text-align: center; }
+        .csv-stat .val { font-size: 18px; font-weight: 700; color: #34d399; }
+        .csv-stat .lbl { font-size: 11px; color: #71717a; margin-top: 2px; }
         .csv-top-tweets { font-size: 13px; }
         .csv-top-tweets table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         .csv-top-tweets th { background: #27272a; padding: 6px 8px; text-align: left; font-size: 12px; }
         .csv-top-tweets td { padding: 6px 8px; border-bottom: 1px solid #27272a; font-size: 12px; }
 
         .error-msg {
-            background: #451a1a;
-            border: 1px solid #7f1d1d;
-            border-radius: 8px;
-            padding: 12px 16px;
-            color: #fca5a5;
-            font-size: 14px;
-            margin-bottom: 16px;
-            display: none;
+            background: #451a1a; border: 1px solid #7f1d1d; border-radius: 8px;
+            padding: 12px 16px; color: #fca5a5; font-size: 14px; margin-bottom: 16px; display: none;
+        }
+        .error-msg.active { display: block; }
+
+        /* コンテンツ生成 */
+        .content-type-selector { display: flex; gap: 8px; }
+        .type-btn {
+            flex: 1; padding: 12px 16px; background: #09090b; border: 2px solid #3f3f46;
+            border-radius: 8px; color: #a1a1aa; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; text-align: center;
+        }
+        .type-btn:hover { border-color: #6366f1; color: #e4e4e7; }
+        .type-btn.active { border-color: #6366f1; background: rgba(99, 102, 241, 0.1); color: #818cf8; }
+
+        .project-selector { margin-bottom: 16px; }
+        .project-selector select {
+            width: 100%; padding: 10px 14px; background: #09090b; border: 1px solid #3f3f46;
+            border-radius: 8px; color: #fff; font-size: 14px; cursor: pointer;
         }
 
-        .error-msg.active {
-            display: block;
+        /* プロジェクト管理 */
+        .project-card {
+            background: #18181b; border: 1px solid #27272a; border-radius: 12px;
+            padding: 20px; margin-bottom: 12px; transition: border-color 0.2s;
         }
+        .project-card:hover { border-color: #3f3f46; }
+        .project-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .project-card-title { font-size: 16px; font-weight: 700; color: #fff; }
+        .project-card-actions { display: flex; gap: 6px; }
+        .project-card-actions button {
+            padding: 4px 10px; background: #27272a; border: 1px solid #3f3f46; border-radius: 4px;
+            color: #a1a1aa; font-size: 12px; cursor: pointer;
+        }
+        .project-card-actions button:hover { background: #3f3f46; }
+        .project-card-actions button.delete:hover { background: #7f1d1d; border-color: #991b1b; color: #fca5a5; }
+        .project-card-meta { font-size: 12px; color: #71717a; }
+        .project-card-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+        .project-card-tag {
+            padding: 2px 8px; background: rgba(99, 102, 241, 0.15); border-radius: 4px;
+            font-size: 11px; color: #818cf8;
+        }
+
+        /* プロジェクト詳細展開 */
+        .project-card-toggle {
+            cursor: pointer;
+        }
+        .project-detail { display: none; margin-top: 12px; }
+        .project-detail.open { display: block; }
+        .detail-tab-nav { display: flex; gap: 0; border-bottom: 1px solid #27272a; margin-bottom: 12px; }
+        .detail-tab-btn {
+            padding: 8px 16px; background: none; border: none;
+            border-bottom: 2px solid transparent; color: #71717a;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+        .detail-tab-btn:hover { color: #a1a1aa; }
+        .detail-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+        .detail-tab-content { display: none; }
+        .detail-tab-content.active { display: block; }
+        .detail-raw-content {
+            background: #09090b; border: 1px solid #3f3f46; border-radius: 8px;
+            padding: 16px; font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all;
+            color: #a1a1aa; max-height: 500px; overflow-y: auto;
+        }
+        .detail-no-data { color: #52525b; font-size: 13px; font-style: italic; padding: 16px; text-align: center; }
+
+        /* タイムラインツリー */
+        .tl-tree { max-height: 500px; overflow-y: auto; }
+        .tl-filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .tl-filter-btn {
+            padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+            cursor: pointer; border: 1px solid #3f3f46; background: #18181b; color: #a1a1aa;
+            transition: all 0.15s;
+        }
+        .tl-filter-btn:hover { border-color: #6366f1; }
+        .tl-filter-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+        .tl-entry { background: #09090b; border: 1px solid #3f3f46; border-radius: 8px; margin-bottom: 6px; overflow: hidden; }
+        .tl-entry.filtered-out { display: none; }
+        .tl-date-row {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            padding: 10px 16px; cursor: pointer; transition: background 0.15s;
+        }
+        .tl-date-row:hover { background: #18181b; }
+        .tl-expand-icon { color: #52525b; font-size: 12px; transition: transform 0.2s; min-width: 16px; }
+        .tl-entry.open .tl-expand-icon { transform: rotate(90deg); }
+        .tl-body { display: none; padding: 0 16px 12px 16px; }
+        .tl-entry.open .tl-body { display: block; }
+        .tl-date-input {
+            background: #6366f1; color: #fff; padding: 2px 10px; border-radius: 4px;
+            font-size: 12px; font-weight: 700; white-space: nowrap;
+            border: 1px solid transparent; width: 70px; text-align: center;
+        }
+        .tl-date-input:hover, .tl-date-input:focus { border-color: #818cf8; outline: none; background: #4f46e5; }
+        .tl-date {
+            background: #6366f1; color: #fff; padding: 2px 10px; border-radius: 4px;
+            font-size: 12px; font-weight: 700; white-space: nowrap;
+        }
+        .tl-cat-badge {
+            padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700;
+            white-space: nowrap;
+        }
+        .tl-cat-MTG { background: #854d0e33; color: #fbbf24; border: 1px solid #854d0e; }
+        .tl-cat-プレスリリース { background: #166534aa; color: #4ade80; border: 1px solid #166534; }
+        .tl-cat-X更新 { background: #1e3a5faa; color: #60a5fa; border: 1px solid #1e3a5f; }
+        .tl-cat-PV映像, .tl-cat-PV\/映像 { background: #581c87aa; color: #c084fc; border: 1px solid #581c87; }
+        .tl-cat-Web\/HP, .tl-cat-WebHP { background: #064e3baa; color: #34d399; border: 1px solid #064e3b; }
+        .tl-cat-イベント { background: #7f1d1daa; color: #fca5a5; border: 1px solid #7f1d1d; }
+        .tl-cat-制作進行 { background: #3f3f46aa; color: #a1a1aa; border: 1px solid #3f3f46; }
+        .tl-cat-メディア { background: #4338caaa; color: #a5b4fc; border: 1px solid #4338ca; }
+        .tl-cat-コラボ\/グッズ, .tl-cat-コラボグッズ { background: #9a3412aa; color: #fdba74; border: 1px solid #9a3412; }
+        .tl-cat-その他 { background: #27272a; color: #71717a; border: 1px solid #3f3f46; }
+        .tl-title-input {
+            flex: 1; background: transparent; border: 1px solid transparent; border-radius: 4px;
+            color: #fff; font-size: 14px; font-weight: 600; padding: 2px 6px;
+        }
+        .tl-title-input:hover, .tl-title-input:focus { border-color: #3f3f46; background: #18181b; outline: none; }
+        .tl-items { margin-left: 16px; }
+        .tl-item { margin-bottom: 6px; }
+        .tl-item-label {
+            display: flex; align-items: center; gap: 4px;
+        }
+        .tl-item-label::before { content: "•"; color: #6366f1; font-weight: bold; }
+        .tl-item-label input {
+            flex: 1; background: transparent; border: 1px solid transparent; border-radius: 4px;
+            color: #d4d4d8; font-size: 13px; padding: 2px 6px;
+        }
+        .tl-item-label input:hover, .tl-item-label input:focus { border-color: #3f3f46; background: #18181b; outline: none; }
+        .tl-children { margin-left: 24px; margin-top: 2px; }
+        .tl-child {
+            display: flex; align-items: center; gap: 4px; margin-bottom: 2px;
+        }
+        .tl-child::before { content: "└"; color: #52525b; font-size: 11px; }
+        .tl-child input {
+            flex: 1; background: transparent; border: 1px solid transparent; border-radius: 4px;
+            color: #a1a1aa; font-size: 12px; padding: 2px 6px;
+        }
+        .tl-child input:hover, .tl-child input:focus { border-color: #3f3f46; background: #18181b; outline: none; }
+
+        /* 編集可能テーブル */
+        .editable-table-wrap { max-height: 500px; overflow: auto; }
+        .editable-table { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+        .editable-table th {
+            background: #27272a; padding: 8px 12px; text-align: left; font-size: 11px;
+            font-weight: 700; color: #a1a1aa; position: sticky; top: 0; border-bottom: 2px solid #6366f1;
+            min-width: 120px; white-space: nowrap;
+        }
+        .editable-table th:first-child { min-width: 160px; }
+        .editable-table td:first-child { min-width: 160px; }
+        .editable-table td:first-child input { min-width: 140px; font-weight: 600; }
+        .editable-table th.release-col { background: #1e1b4b; color: #818cf8; text-align: center; min-width: 80px; }
+        .editable-table th.add-col-th { background: #18181b; min-width: 40px; width: 40px; padding: 0; }
+        .editable-table td { padding: 0; border-bottom: 1px solid #27272a; min-width: 140px; }
+        .editable-table td input {
+            width: 100%; min-width: 100px; background: transparent; border: none; color: #d4d4d8;
+            font-size: 12px; padding: 8px 12px; outline: none; white-space: normal;
+        }
+        .editable-table td input:focus { background: #18181b; }
+        .editable-table td.release-cell { text-align: center; }
+        .editable-table td.release-cell input { text-align: center; min-width: 60px; }
+        .editable-table td.release-cell.is-released input { color: #ef4444; font-weight: 900; font-size: 16px; }
+        .editable-table .section-header td {
+            background: #18181b; padding: 6px 10px; color: #6366f1;
+            font-weight: 700; font-size: 12px;
+        }
+        .release-legend {
+            display: flex; gap: 12px; align-items: center; margin-bottom: 8px;
+            font-size: 11px; color: #71717a;
+        }
+        .release-legend-dot { color: #ef4444; font-weight: 900; font-size: 14px; }
+
+        .tl-cat-select { transition: border-color 0.15s; max-width: 140px; }
+        .tl-cat-select:focus { border-color: #6366f1 !important; }
+        .tl-delete-btn {
+            background: none; border: 1px solid transparent; color: #52525b; cursor: pointer;
+            font-size: 14px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s;
+        }
+        .tl-delete-btn:hover { color: #ef4444; border-color: #7f1d1d; background: #7f1d1d33; }
+        .tl-delete-sm { font-size: 11px; padding: 1px 4px; }
+        .add-col-btn {
+            background: #18181b; border: 1px dashed #3f3f46; color: #6366f1;
+            cursor: pointer; font-size: 11px; padding: 4px 8px; border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .add-col-btn:hover { border-color: #6366f1; }
+
+        .url-input-group { display: flex; gap: 8px; align-items: center; }
+        .url-input-group input { flex: 1; }
+        .url-status {
+            font-size: 12px; min-width: 20px; text-align: center;
+        }
+        .url-status.ok { color: #34d399; }
+        .url-status.loading { color: #fbbf24; }
+        .url-status.error { color: #ef4444; }
+
+        .extract-preview {
+            background: #09090b; border: 1px solid #3f3f46; border-radius: 8px;
+            padding: 16px; margin-top: 16px; font-size: 13px; line-height: 1.6;
+            max-height: 400px; overflow-y: auto;
+        }
+        .extract-field { margin-bottom: 8px; }
+        .extract-field-label { color: #6366f1; font-weight: 600; font-size: 12px; }
+        .extract-field-value { color: #d4d4d8; white-space: pre-wrap; }
+
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: #52525b;
+        }
+        .empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+        .empty-state-text { font-size: 14px; margin-bottom: 16px; }
+
+        .content-output {
+            background: #18181b; border: 1px solid #27272a; border-radius: 12px;
+            padding: 24px; white-space: pre-wrap; font-size: 14px; line-height: 1.8;
+            min-height: 120px; max-height: 600px; overflow-y: auto;
+        }
+        .char-counter { text-align: right; font-size: 12px; color: #71717a; margin-top: 8px; }
+        .char-counter.over { color: #ef4444; }
+
+        /* ===== ログイン画面 ===== */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0f1117; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-card {
+            background: #18181b; border: 1px solid #27272a; border-radius: 16px;
+            padding: 48px 40px; text-align: center; max-width: 400px; width: 90%;
+        }
+        .login-card h1 { font-size: 28px; margin-bottom: 8px; }
+        .login-card .subtitle { margin-bottom: 32px; }
+        .login-card .g-signin { display: flex; justify-content: center; margin-bottom: 16px; }
+        .login-card .note { font-size: 11px; color: #52525b; margin-top: 16px; }
+
+        /* ユーザーバー */
+        .user-bar {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 12px; margin-bottom: 16px;
+        }
+        .user-bar.hidden { display: none; }
+        .user-info {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: #a1a1aa;
+        }
+        .user-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 1px solid #3f3f46;
+        }
+        .btn-logout {
+            padding: 4px 12px; background: #27272a; border: 1px solid #3f3f46;
+            border-radius: 6px; color: #a1a1aa; font-size: 12px; cursor: pointer;
+        }
+        .btn-logout:hover { background: #3f3f46; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>アニメ広報レポート生成ツール</h1>
-        <p class="subtitle">アニメタイトルを入力するだけで、プレスリリース・メディア掲載・SNS投稿を自動検索してレポートを生成します。</p>
-
-        <div class="input-section">
-            <div class="form-group">
-                <label for="anime-title">アニメタイトル</label>
-                <input type="text" id="anime-title" placeholder="アニメタイトルを入力" autocomplete="off">
+    <!-- ログイン画面 -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-card">
+            <h1>アニメ広報ツール</h1>
+            <p class="subtitle">ログインして利用を開始</p>
+            <div class="g-signin">
+                <div id="g_id_onload"
+                     data-client_id="105287262948-9qob3e7bv0aaeqk92ou40mmlqtnsp1u0.apps.googleusercontent.com"
+                     data-callback="handleGoogleLogin"
+                     data-auto_prompt="false">
+                </div>
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-size="large"
+                     data-theme="filled_black"
+                     data-text="signin_with"
+                     data-shape="rectangular"
+                     data-logo_alignment="left"
+                     data-locale="ja">
+                </div>
             </div>
-            <div class="form-group">
-                <button class="btn-generate" id="btn-generate" onclick="generateReport()">レポートを生成</button>
+            <p class="note">Googleアカウントで安全にログインできます</p>
+        </div>
+    </div>
+
+    <div class="container" id="app-container" style="display:none;">
+        <!-- ユーザーバー -->
+        <div class="user-bar" id="user-bar">
+            <div class="user-info">
+                <img class="user-avatar" id="user-avatar" src="" alt="">
+                <span id="user-name"></span>
+            </div>
+            <button class="btn-logout" onclick="handleLogout()">ログアウト</button>
+        </div>
+
+        <h1>アニメ広報ツール</h1>
+        <p class="subtitle">広報レポートの自動生成 & ツイート・プレスリリースのAI作成</p>
+
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('report')">広報レポート</button>
+            <button class="tab-btn" onclick="switchTab('content')">コンテンツ生成</button>
+            <button class="tab-btn" onclick="switchTab('projects')">プロジェクト管理</button>
+        </div>
+
+        <!-- タブ1: 広報レポート -->
+        <div id="tab-report" class="tab-panel active">
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="anime-title">アニメタイトル</label>
+                    <input type="text" id="anime-title" placeholder="アニメタイトルを入力" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <button class="btn-generate" id="btn-generate" onclick="generateReport()">レポートを生成</button>
+                </div>
+            </div>
+
+            <div class="csv-section">
+                <h2>X (Twitter) Analytics CSV</h2>
+                <p class="hint">X Analytics からエクスポートしたCSVをドロップまたはクリックで読み込み（任意）</p>
+                <div class="csv-drop" id="csv-drop" onclick="document.getElementById('csv-file').click()">
+                    CSVファイルをドロップ または クリックして選択
+                    <input type="file" id="csv-file" accept=".csv">
+                </div>
+                <div class="csv-stats" id="csv-stats">
+                    <div class="csv-stats-grid" id="csv-stats-grid"></div>
+                    <details class="csv-top-tweets">
+                        <summary style="cursor:pointer;color:#a1a1aa;font-size:13px" id="csv-detail-label">トップ日（インプレッション数順）</summary>
+                        <div id="csv-top-tweets-table"></div>
+                    </details>
+                </div>
+            </div>
+
+            <div class="error-msg" id="error-msg"></div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p class="loading-text" id="loading-text">検索を開始しています...</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <p class="progress-step" id="progress-step">0 / 4</p>
+            </div>
+
+            <div class="result-section" id="result-section">
+                <div class="stats-bar">
+                    <div class="stat-card"><div class="number" id="stat-pr">0</div><div class="label">プレスリリース</div></div>
+                    <div class="stat-card"><div class="number" id="stat-media">0</div><div class="label">メディア掲載</div></div>
+                    <div class="stat-card"><div class="number" id="stat-sns">0</div><div class="label">SNS投稿</div></div>
+                    <div class="stat-card"><div class="number" id="stat-info">0</div><div class="label">関連ページ</div></div>
+                </div>
+                <div class="actions-bar">
+                    <button class="btn-action" id="btn-copy" onclick="copyMarkdown()">Markdownをコピー</button>
+                    <button class="btn-action" onclick="downloadMarkdown()">ダウンロード (.md)</button>
+                    <button class="btn-action" id="btn-toggle" onclick="toggleView()">Markdown原文を表示</button>
+                </div>
+                <div class="report-preview" id="report-preview"></div>
+                <div class="raw-markdown" id="raw-markdown"></div>
             </div>
         </div>
 
-        <div class="csv-section">
-            <h2>X (Twitter) Analytics CSV</h2>
-            <p class="hint">X Analytics からエクスポートしたCSVをドロップまたはクリックで読み込み（任意）</p>
-            <div class="csv-drop" id="csv-drop" onclick="document.getElementById('csv-file').click()">
-                CSVファイルをドロップ または クリックして選択
-                <input type="file" id="csv-file" accept=".csv">
+        <!-- タブ2: コンテンツ生成 -->
+        <div id="tab-content" class="tab-panel">
+            <div class="input-section">
+                <div class="form-group project-selector">
+                    <label>プロジェクトから自動入力</label>
+                    <select id="project-select" onchange="applyProject()">
+                        <option value="">-- 手動入力 --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>コンテンツタイプ</label>
+                    <div class="content-type-selector">
+                        <button class="type-btn active" data-type="tweet" onclick="switchContentType('tweet')">ツイート</button>
+                        <button class="type-btn" data-type="press_release" onclick="switchContentType('press_release')">プレスリリース</button>
+                    </div>
+                </div>
             </div>
-            <div class="csv-stats" id="csv-stats">
-                <div class="csv-stats-grid" id="csv-stats-grid"></div>
-                <details class="csv-top-tweets">
-                    <summary style="cursor:pointer;color:#a1a1aa;font-size:13px" id="csv-detail-label">トップ日（インプレッション数順）</summary>
-                    <div id="csv-top-tweets-table"></div>
-                </details>
+
+            <div class="input-section" id="content-form-section">
+                <div id="content-form"></div>
+                <div class="form-group">
+                    <button class="btn-generate" id="btn-content-generate" onclick="generateContent()">コンテンツを生成</button>
+                </div>
+            </div>
+
+            <div class="error-msg" id="content-error-msg"></div>
+
+            <div class="loading" id="content-loading">
+                <div class="spinner"></div>
+                <p class="loading-text" id="content-loading-text">Claude APIに接続中...</p>
+            </div>
+
+            <div class="result-section" id="content-result">
+                <div class="actions-bar">
+                    <button class="btn-action" id="btn-content-copy" onclick="copyContent()">コピー</button>
+                    <button class="btn-action" onclick="generateContent()">再生成</button>
+                </div>
+                <div class="content-output" id="content-output"></div>
+                <div class="char-counter" id="char-counter"></div>
             </div>
         </div>
-
-        <div class="error-msg" id="error-msg"></div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p class="loading-text" id="loading-text">検索を開始しています...</p>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progress-bar"></div>
-            </div>
-            <p class="progress-step" id="progress-step">0 / 4</p>
-        </div>
-
-        <div class="result-section" id="result-section">
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="number" id="stat-pr">0</div>
-                    <div class="label">プレスリリース</div>
+        <!-- タブ3: プロジェクト管理 -->
+        <div id="tab-projects" class="tab-panel">
+            <div class="input-section">
+                <h2 style="font-size:16px;color:#fff;margin-bottom:4px;">新規プロジェクト登録</h2>
+                <p style="font-size:12px;color:#52525b;margin-bottom:16px;">Google Docs/SheetsのURLを入力して作品情報を自動抽出します。<br>※「リンクを知っている全員が閲覧可」に設定してください。</p>
+                <div class="form-group">
+                    <label for="pj-name">作品名（管理用）<span class="required">*</span></label>
+                    <input type="text" id="pj-name" placeholder="例: 魔王武装のスレイブマスター">
                 </div>
-                <div class="stat-card">
-                    <div class="number" id="stat-media">0</div>
-                    <div class="label">メディア掲載</div>
+                <div class="form-group">
+                    <label>宣伝タイムライン（Google Docs）</label>
+                    <div class="url-input-group">
+                        <input type="text" id="pj-url-timeline" placeholder="https://docs.google.com/document/d/...">
+                        <span class="url-status" id="pj-status-timeline"></span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="number" id="stat-sns">0</div>
-                    <div class="label">SNS投稿</div>
+                <div class="form-group">
+                    <label>テキストマスター（Google Sheets）</label>
+                    <div class="url-input-group">
+                        <input type="text" id="pj-url-text_master" placeholder="https://docs.google.com/spreadsheets/d/...">
+                        <span class="url-status" id="pj-status-text_master"></span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="number" id="stat-info">0</div>
-                    <div class="label">関連ページ</div>
+                <div class="form-group">
+                    <label>宣伝予算表（Google Sheets）</label>
+                    <div class="url-input-group">
+                        <input type="text" id="pj-url-budget" placeholder="https://docs.google.com/spreadsheets/d/...">
+                        <span class="url-status" id="pj-status-budget"></span>
+                    </div>
                 </div>
-            </div>
-
-            <div class="actions-bar">
-                <button class="btn-action" id="btn-copy" onclick="copyMarkdown()">Markdownをコピー</button>
-                <button class="btn-action" onclick="downloadMarkdown()">ダウンロード (.md)</button>
-                <button class="btn-action" id="btn-toggle" onclick="toggleView()">Markdown原文を表示</button>
+                <div class="form-group">
+                    <button class="btn-generate" id="btn-register-project" onclick="registerProject()">資料を取得して登録</button>
+                </div>
             </div>
 
-            <div class="report-preview" id="report-preview"></div>
-            <div class="raw-markdown" id="raw-markdown"></div>
+            <div class="error-msg" id="pj-error-msg"></div>
+
+            <div class="loading" id="pj-loading">
+                <div class="spinner"></div>
+                <p class="loading-text" id="pj-loading-text">資料を取得中...</p>
+                <div class="progress-bar-container" style="margin-top:12px;">
+                    <div class="progress-bar" id="pj-progress-bar" style="width:0%"></div>
+                </div>
+                <p class="progress-step" id="pj-progress-step"></p>
+            </div>
+
+            <!-- 抽出プレビュー -->
+            <div id="pj-extract-preview" style="display:none;">
+                <div class="input-section">
+                    <h2 style="font-size:16px;color:#fff;margin-bottom:12px;">抽出結果プレビュー</h2>
+                    <div id="pj-extract-fields"></div>
+                    <div class="form-group" style="margin-top:16px;display:flex;gap:8px;">
+                        <button class="btn-generate" onclick="confirmProject()" style="flex:1;">この内容で保存</button>
+                        <button class="btn-action" onclick="cancelProject()" style="padding:12px 24px;">キャンセル</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 登録済みプロジェクト一覧 -->
+            <div id="project-list"></div>
         </div>
     </div>
 
     <script>
+        // ===== 認証管理 =====
+        const GOOGLE_CLIENT_ID = "105287262948-9qob3e7bv0aaeqk92ou40mmlqtnsp1u0.apps.googleusercontent.com";
+        let authToken = null;
+
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                return JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
+                    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+                ).join('')));
+            } catch { return null; }
+        }
+
+        function handleGoogleLogin(response) {
+            const payload = parseJwt(response.credential);
+            if (!payload) { alert("ログインに失敗しました"); return; }
+
+            authToken = response.credential;
+            const user = {
+                name: payload.name,
+                email: payload.email,
+                picture: payload.picture,
+                token: response.credential,
+                exp: payload.exp,
+            };
+            localStorage.setItem("anime_pr_user", JSON.stringify(user));
+            showApp(user);
+        }
+
+        function showApp(user) {
+            document.getElementById("login-overlay").classList.add("hidden");
+            document.getElementById("app-container").style.display = "block";
+            document.getElementById("user-name").textContent = user.name;
+            document.getElementById("user-avatar").src = user.picture || "";
+            authToken = user.token;
+        }
+
+        function handleLogout() {
+            localStorage.removeItem("anime_pr_user");
+            authToken = null;
+            document.getElementById("login-overlay").classList.remove("hidden");
+            document.getElementById("app-container").style.display = "none";
+            // Google Sign-In をリセット
+            google.accounts.id.disableAutoSelect();
+        }
+
+        function checkAuth() {
+            try {
+                const saved = JSON.parse(localStorage.getItem("anime_pr_user"));
+                if (saved && saved.token) {
+                    // トークンの有効期限チェック
+                    if (saved.exp && saved.exp * 1000 < Date.now()) {
+                        localStorage.removeItem("anime_pr_user");
+                        return;
+                    }
+                    showApp(saved);
+                }
+            } catch { /* 未ログイン */ }
+        }
+
+        // APIリクエストにトークンを付与するヘルパー
+        function authHeaders(extra = {}) {
+            return {
+                "Content-Type": "application/json",
+                "Authorization": authToken ? "Bearer " + authToken : "",
+                ...extra,
+            };
+        }
+
+        // 初期化時に認証チェック
+        checkAuth();
+
         let currentReport = "";
         let currentTitle = "";
         let showingRaw = false;
         let csvData = null;
+        let currentContentType = "tweet";
+        let generatedContent = "";
 
-        // CSV drag & drop
+        // ===== タブ =====
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            document.getElementById("tab-" + tabId).classList.add("active");
+            document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add("active");
+        }
+
+        // ===== コンテンツ生成 =====
+        const CONTENT_FIELDS = {
+            tweet: [
+                { id: "title", label: "作品タイトル", type: "text", required: true, placeholder: "例: 魔王武装のスレイブマスター" },
+                { id: "announcement_type", label: "告知内容", type: "select", required: true,
+                  options: ["放送情報", "キャスト発表", "PV公開", "イベント告知", "グッズ情報", "コラボ発表", "その他"] },
+                { id: "key_info", label: "主要情報（日時・チャンネル・出演者など）", type: "textarea", required: true,
+                  placeholder: "例:\n2026年1月放送開始\nTOKYO MX 毎週金曜24:00\nBS11 毎週金曜24:30" },
+                { id: "hashtag", label: "ハッシュタグ", type: "text", required: false, placeholder: "例: #魔王武装 #maoumusou" },
+                { id: "url", label: "公式サイトURL", type: "text", required: false, placeholder: "https://..." },
+                { id: "tone", label: "トーン", type: "select", required: false, options: ["公式", "カジュアル", "盛り上げ"] },
+            ],
+            press_release: [
+                { id: "title", label: "作品タイトル", type: "text", required: true, placeholder: "例: GATE SEASON2" },
+                { id: "headline", label: "見出し", type: "text", required: true,
+                  placeholder: "例: TVアニメ『GATE SEASON2』2026年放送決定！ティザービジュアル公開" },
+                { id: "lead_summary", label: "リード文の要点（誰が・何を・いつ）", type: "textarea", required: true,
+                  placeholder: "例:\n株式会社〇〇が制作するTVアニメ第2期の制作決定\n2026年7月よりTOKYO MXほかにて放送\nティザービジュアルとPVを本日公開" },
+                { id: "staff_cast", label: "スタッフ＆キャスト", type: "textarea", required: false,
+                  placeholder: "例:\n監督: 〇〇\nシリーズ構成: 〇〇\n主人公役: 〇〇(CV.〇〇)" },
+                { id: "synopsis", label: "あらすじ", type: "textarea", required: false, placeholder: "作品のあらすじ・世界観" },
+                { id: "visual_info", label: "ビジュアル情報", type: "textarea", required: false,
+                  placeholder: "公開されるビジュアルの説明（キャラクター、構図など）" },
+                { id: "event_info", label: "イベント・キャンペーン情報", type: "textarea", required: false,
+                  placeholder: "関連イベントやキャンペーンの詳細" },
+                { id: "source_material", label: "原作情報", type: "text", required: false,
+                  placeholder: "例: 原作小説（アルファポリス刊）シリーズ累計750万部" },
+                { id: "official_links", label: "公式リンク・SNS", type: "textarea", required: false,
+                  placeholder: "公式サイトURL、公式X、ハッシュタグなど" },
+            ],
+        };
+
+        function switchContentType(type) {
+            currentContentType = type;
+            document.querySelectorAll(".type-btn").forEach(b => b.classList.toggle("active", b.dataset.type === type));
+            renderContentForm(type);
+        }
+
+        function renderContentForm(type) {
+            const container = document.getElementById("content-form");
+            container.innerHTML = CONTENT_FIELDS[type].map(f => {
+                const req = f.required ? '<span class="required">*</span>' : '';
+                let input = "";
+                if (f.type === "text") {
+                    input = `<input type="text" id="cf-${f.id}" placeholder="${f.placeholder || ''}" autocomplete="off">`;
+                } else if (f.type === "textarea") {
+                    input = `<textarea id="cf-${f.id}" placeholder="${f.placeholder || ''}" rows="3"></textarea>`;
+                } else if (f.type === "select") {
+                    const opts = f.options.map(o => `<option value="${o}">${o}</option>`).join("");
+                    input = `<select id="cf-${f.id}">${opts}</select>`;
+                }
+                return `<div class="form-group"><label for="cf-${f.id}">${f.label}${req}</label>${input}</div>`;
+            }).join("");
+        }
+
+        function collectFormData() {
+            const data = {};
+            for (const f of CONTENT_FIELDS[currentContentType]) {
+                const el = document.getElementById("cf-" + f.id);
+                if (el) data[f.id] = el.value.trim();
+            }
+            return data;
+        }
+
+        async function generateContent() {
+            const formData = collectFormData();
+            if (!formData.title) { alert("作品タイトルを入力してください"); return; }
+
+            const btn = document.getElementById("btn-content-generate");
+            const loadingEl = document.getElementById("content-loading");
+            const resultEl = document.getElementById("content-result");
+            const errorEl = document.getElementById("content-error-msg");
+            const outputEl = document.getElementById("content-output");
+
+            btn.disabled = true;
+            loadingEl.classList.add("active");
+            resultEl.classList.remove("active");
+            errorEl.classList.remove("active");
+            outputEl.textContent = "";
+            generatedContent = "";
+
+            try {
+                const res = await fetch("/api/content_generate", {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify({ content_type: currentContentType, form_data: formData }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || "エラーが発生しました");
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                loadingEl.classList.remove("active");
+                resultEl.classList.add("active");
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop();
+                    for (const line of lines) {
+                        if (!line.startsWith("data: ")) continue;
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.type === "progress") {
+                                document.getElementById("content-loading-text").textContent = data.message;
+                            } else if (data.type === "chunk") {
+                                generatedContent += data.text;
+                                outputEl.textContent = generatedContent;
+                                outputEl.scrollTop = outputEl.scrollHeight;
+                                updateCharCounter();
+                            } else if (data.type === "done") {
+                                generatedContent = data.full_text;
+                                outputEl.textContent = generatedContent;
+                                updateCharCounter();
+                            } else if (data.type === "error") {
+                                throw new Error(data.message);
+                            }
+                        } catch (parseErr) {
+                            if (parseErr.message && !parseErr.message.includes("JSON")) throw parseErr;
+                        }
+                    }
+                }
+            } catch (e) {
+                errorEl.textContent = e.message;
+                errorEl.classList.add("active");
+                loadingEl.classList.remove("active");
+            } finally {
+                btn.disabled = false;
+                loadingEl.classList.remove("active");
+            }
+        }
+
+        function updateCharCounter() {
+            const counter = document.getElementById("char-counter");
+            const len = generatedContent.length;
+            if (currentContentType === "tweet") {
+                counter.textContent = `${len} / 280文字`;
+                counter.classList.toggle("over", len > 280);
+            } else {
+                counter.textContent = `${len}文字`;
+                counter.classList.remove("over");
+            }
+        }
+
+        function copyContent() {
+            navigator.clipboard.writeText(generatedContent).then(() => {
+                const btn = document.getElementById("btn-content-copy");
+                btn.textContent = "コピーしました!";
+                btn.classList.add("copied");
+                setTimeout(() => { btn.textContent = "コピー"; btn.classList.remove("copied"); }, 2000);
+            });
+        }
+
+        renderContentForm("tweet");
+
+        // ===== プロジェクト管理 =====
+        let pendingExtract = null; // 抽出結果の一時保存
+
+        function getProjects() {
+            try {
+                return JSON.parse(localStorage.getItem("anime_projects") || "{}");
+            } catch { return {}; }
+        }
+
+        function saveProjects(projects) {
+            localStorage.setItem("anime_projects", JSON.stringify(projects));
+        }
+
+        function renderProjectList() {
+            const projects = getProjects();
+            const list = document.getElementById("project-list");
+            const keys = Object.keys(projects);
+
+            if (keys.length === 0) {
+                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-text">まだプロジェクトが登録されていません</div></div>';
+            } else {
+                list.innerHTML = keys.map(id => {
+                    const p = projects[id];
+                    const e = p.extracted || {};
+                    const strc = p.structured || {};
+                    const docs = p.documents || {};
+                    const tags = [e.hashtags, e.official_url ? "公式サイトあり" : ""].filter(Boolean);
+
+                    // 3資料タブ（structured優先、なければ元資料）
+                    const docTabs = [
+                        { key: "timeline", label: "宣伝タイムライン" },
+                        { key: "text_master", label: "テキストマスター" },
+                        { key: "budget", label: "宣伝予算表" },
+                    ];
+                    const tabNav = docTabs.map((t, i) =>
+                        `<button class="detail-tab-btn ${i === 0 ? 'active' : ''}" onclick="switchDetailTab('${id}', '${t.key}', this)">${t.label}</button>`
+                    ).join('');
+                    const tabContents = docTabs.map((t, i) => {
+                        // 構造化済みデータを優先、なければ元テキスト
+                        const data = strc[t.key] || (docs[t.key] && docs[t.key].content ? docs[t.key].content : null);
+                        return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-${t.key}">
+                            ${renderStructuredContent(t.key, data, false)}
+                        </div>`;
+                    }).join('');
+
+                    return `<div class="project-card">
+                        <div class="project-card-header">
+                            <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name)}</div>
+                            <div class="project-card-actions">
+                                <button onclick="reExtractProject('${id}')">再抽出</button>
+                                <button class="delete" onclick="deleteProject('${id}')">削除</button>
+                            </div>
+                        </div>
+                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
+                        ${tags.length ? '<div class="project-card-tags">' + tags.map(t => `<span class="project-card-tag">${escapeHtml(t)}</span>`).join('') + '</div>' : ''}
+                        <div class="project-detail" id="pdetail-${id}">
+                            <div class="detail-tab-nav">${tabNav}</div>
+                            ${tabContents}
+                        </div>
+                    </div>`;
+                }).join("");
+            }
+
+            // コンテンツ生成タブのプロジェクト選択を更新
+            updateProjectSelect();
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        }
+
+        function updateProjectSelect() {
+            const select = document.getElementById("project-select");
+            const projects = getProjects();
+            const current = select.value;
+            select.innerHTML = '<option value="">-- 手動入力 --</option>';
+            for (const [id, p] of Object.entries(projects)) {
+                select.innerHTML += `<option value="${id}">${escapeHtml(p.name)}</option>`;
+            }
+            if (current && projects[current]) select.value = current;
+        }
+
+        async function registerProject() {
+            console.log("[DEBUG] registerProject called");
+            const name = document.getElementById("pj-name").value.trim();
+            if (!name) { alert("作品名を入力してください"); return; }
+            console.log("[DEBUG] name=", name, "authToken=", authToken ? "SET" : "NULL");
+
+            const urlKeys = ["timeline", "text_master", "budget"];
+            const urls = {};
+            for (const key of urlKeys) {
+                const v = document.getElementById("pj-url-" + key).value.trim();
+                if (v) urls[key] = v;
+            }
+            if (Object.keys(urls).length === 0) {
+                alert("少なくとも1つのURLを入力してください");
+                return;
+            }
+
+            const btn = document.getElementById("btn-register-project");
+            const loadingEl = document.getElementById("pj-loading");
+            const errorEl = document.getElementById("pj-error-msg");
+            const progressBar = document.getElementById("pj-progress-bar");
+            const progressStep = document.getElementById("pj-progress-step");
+            btn.disabled = true;
+            loadingEl.classList.add("active");
+            errorEl.classList.remove("active");
+            progressBar.style.width = "0%";
+            progressStep.textContent = "";
+
+            const docLabels = { timeline: "宣伝タイムライン", text_master: "テキストマスター", budget: "宣伝予算表" };
+            let fakeInterval = null;
+            let fakePct = 0;
+
+            function setProgress(pct, message) {
+                if (fakeInterval) { clearInterval(fakeInterval); fakeInterval = null; }
+                fakePct = pct;
+                progressBar.style.width = pct + "%";
+                document.getElementById("pj-loading-text").textContent = message;
+                progressStep.textContent = Math.round(pct) + "%";
+                // ゆっくり進むアニメ
+                fakeInterval = setInterval(() => {
+                    if (fakePct < pct + 15 && fakePct < 98) {
+                        fakePct += 0.3;
+                        progressBar.style.width = fakePct + "%";
+                        progressStep.textContent = Math.round(fakePct) + "%";
+                    }
+                }, 400);
+            }
+
+            function finishProgress() {
+                if (fakeInterval) { clearInterval(fakeInterval); fakeInterval = null; }
+                progressBar.style.width = "100%";
+                progressStep.textContent = "完了";
+            }
+
+            try {
+                // ===== STEP 1: 全資料を並列取得 (0→30%) =====
+                setProgress(5, "資料を取得中...");
+                const urlEntries = Object.entries(urls);
+                urlEntries.forEach(([key]) => {
+                    document.getElementById("pj-status-" + key).textContent = "⏳";
+                    document.getElementById("pj-status-" + key).className = "url-status loading";
+                });
+
+                const fetchResults = await Promise.allSettled(
+                    urlEntries.map(([key, url]) =>
+                        fetch("/api/fetch_gdoc", { method: "POST", headers: authHeaders(), body: JSON.stringify({ url }) })
+                            .then(r => r.json().then(d => ({ key, ok: r.ok, data: d })))
+                    )
+                );
+
+                setProgress(30, "資料を取得完了");
+                const documents = {};
+                for (const result of fetchResults) {
+                    if (result.status === 'fulfilled' && result.value.ok) {
+                        const { key, data } = result.value;
+                        documents[key] = data;
+                        document.getElementById("pj-status-" + key).textContent = "✓";
+                        document.getElementById("pj-status-" + key).className = "url-status ok";
+                    } else {
+                        const key = result.status === 'fulfilled' ? result.value.key : '?';
+                        const msg = result.status === 'fulfilled' ? result.value.data?.error : result.reason;
+                        if (key !== '?') {
+                            document.getElementById("pj-status-" + key).textContent = "✗";
+                            document.getElementById("pj-status-" + key).className = "url-status error";
+                        }
+                        throw new Error(`${key}: ${msg}`);
+                    }
+                }
+
+                // ===== STEP 2: AI構造化 + メタ抽出を並列 (30→95%) =====
+                const docKeys = Object.keys(documents);
+                setProgress(35, `${docKeys.map(k => docLabels[k]).join('・')}をAIで構造化中...`);
+
+                let completedCount = 0;
+                const totalJobs = docKeys.length + 1; // 構造化 + メタ
+
+                function onJobComplete(label) {
+                    completedCount++;
+                    const pct = 35 + Math.round((completedCount / totalJobs) * 60);
+                    setProgress(pct, `${label} 完了 (${completedCount}/${totalJobs})`);
+                }
+
+                const structurePromises = docKeys.map(key =>
+                    fetch("/api/structure_doc", {
+                        method: "POST", headers: authHeaders(),
+                        body: JSON.stringify({ doc_type: key, content: documents[key].content }),
+                    }).then(r => r.json().then(d => {
+                        onJobComplete(docLabels[key]);
+                        return { key, ok: r.ok, data: d };
+                    })).catch(e => {
+                        onJobComplete(docLabels[key] + "(エラー)");
+                        return { key, ok: false, error: e.message };
+                    })
+                );
+
+                const metaPromise = fetch("/api/extract_meta", {
+                    method: "POST", headers: authHeaders(),
+                    body: JSON.stringify({ documents }),
+                }).then(r => r.json().then(d => {
+                    onJobComplete("メタ情報");
+                    return d;
+                })).catch(() => {
+                    onJobComplete("メタ情報(スキップ)");
+                    return { extracted: { title: "", hashtags: "", official_url: "", official_x: "" } };
+                });
+
+                const [structureResults, metaData] = await Promise.all([
+                    Promise.all(structurePromises),
+                    metaPromise,
+                ]);
+
+                const structured = {};
+                for (const result of structureResults) {
+                    if (result.ok) {
+                        structured[result.key] = result.data.structured;
+                    }
+                }
+
+                const extracted = metaData.extracted || { title: "", hashtags: "", official_url: "", official_x: "" };
+
+                finishProgress();
+
+                // プレビュー表示
+                pendingExtract = {
+                    name: name,
+                    urls: urls,
+                    extracted: extracted,
+                    structured: structured,
+                    documents: documents,
+                };
+                showExtractPreview(extracted, structured);
+
+            } catch (e) {
+                console.error("[DEBUG] registerProject ERROR:", e);
+                errorEl.textContent = e.message;
+                errorEl.classList.add("active");
+            } finally {
+                if (fakeInterval) { clearInterval(fakeInterval); fakeInterval = null; }
+                btn.disabled = false;
+                loadingEl.classList.remove("active");
+            }
+        }
+
+        function showExtractPreview(extracted, structured) {
+            console.log("[DEBUG] showExtractPreview", { extracted, structured });
+            const container = document.getElementById("pj-extract-fields");
+            const docTabs = [
+                { key: "timeline", label: "宣伝タイムライン" },
+                { key: "text_master", label: "テキストマスター" },
+                { key: "budget", label: "宣伝予算表" },
+            ];
+
+            let html = '';
+
+            // 構造化資料のタブ表示（編集可能）
+            html += '<div style="margin-top:16px;">';
+            html += '<div class="detail-tab-nav">';
+            docTabs.forEach((t, i) => {
+                html += `<button class="detail-tab-btn ${i === 0 ? 'active' : ''}" onclick="switchPreviewTab('${t.key}', this)">${t.label}</button>`;
+            });
+            html += '</div>';
+            docTabs.forEach((t, i) => {
+                html += `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="preview-tab-${t.key}">
+                    ${renderStructuredContent(t.key, structured[t.key], true)}
+                </div>`;
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+            document.getElementById("pj-extract-preview").style.display = "block";
+        }
+
+        // ===== 構造化データのレンダリング =====
+
+        function renderStructuredContent(docType, data, editable = true) {
+            if (!data) return '<div class="detail-no-data">この資料は登録されていません</div>';
+
+            if (typeof data === 'string') {
+                return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
+            }
+
+            if (docType === 'timeline') return renderTimeline(data, editable);
+            if (docType === 'text_master' || docType === 'budget') {
+                console.log("[DEBUG] renderTable", docType, "release_columns=", data.release_columns, "headers=", data.headers);
+                if (data.sections) {
+                    for (const s of data.sections) {
+                        for (const r of (s.rows || []).slice(0, 2)) {
+                            console.log("[DEBUG] row:", r);
+                        }
+                    }
+                }
+                return renderTable(data, editable);
+            }
+            return '<div class="detail-no-data">未対応の形式です</div>';
+        }
+
+        const TL_CATEGORIES = ["MTG","プレスリリース","X更新","PV/映像","Web/HP","イベント","制作進行","メディア","コラボ/グッズ","その他"];
+
+        function renderTimeline(entries, editable) {
+            if (!Array.isArray(entries)) return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(entries, null, 2))}</div>`;
+            const cats = [...new Set(entries.map(e => e.category || 'その他'))];
+            const uid = 'tl_' + Date.now();
+
+            let html = '';
+            html += `<div class="tl-filter-bar" id="filter-${uid}">`;
+            html += `<button class="tl-filter-btn active" onclick="filterTimeline('${uid}', 'all', this)">すべて</button>`;
+            cats.forEach(cat => {
+                const catClass = 'tl-cat-' + cat.replace(/[\/]/g, '');
+                html += `<button class="tl-filter-btn ${catClass}" style="border:none;" onclick="filterTimeline('${uid}', '${cat}', this)">${cat}</button>`;
+            });
+            html += '</div>';
+
+            html += `<div class="tl-tree" id="tree-${uid}">`;
+            entries.forEach((entry, ei) => {
+                const cat = entry.category || 'その他';
+                const catClass = 'tl-cat-' + cat.replace(/[\/]/g, '');
+                const itemCount = (entry.items || []).length;
+                const childCount = (entry.items || []).reduce((s, it) => s + (it.children || []).length, 0);
+                const summary = itemCount > 0 ? `（${itemCount}件）` : '';
+
+                html += `<div class="tl-entry" data-cat="${escapeHtml(cat)}" data-ei="${ei}">`;
+                // ヘッダー行（常に表示・クリックで開閉）
+                html += `<div class="tl-date-row" onclick="toggleTlAccordion(this)">`;
+                html += '<span class="tl-expand-icon">▶</span>';
+                if (editable) {
+                    html += `<input class="tl-date-input" value="${escapeHtml(entry.date || '日付未定')}" data-ei="${ei}" data-field="date" onchange="onTlEdit(this)" onclick="event.stopPropagation()">`;
+                    html += `<select class="tl-cat-select" data-ei="${ei}" onchange="onTlCatChange(this)" onclick="event.stopPropagation()" style="background:#18181b;border:1px solid #3f3f46;border-radius:10px;color:#a1a1aa;font-size:10px;padding:2px 6px;outline:none;">`;
+                    TL_CATEGORIES.forEach(c => { html += `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`; });
+                    html += '</select>';
+                    html += `<span style="color:#fff;font-weight:600;font-size:13px;flex:1;">${escapeHtml(entry.title || '')}</span>`;
+                    html += `<span style="color:#52525b;font-size:11px;">${summary}</span>`;
+                    html += `<button class="tl-delete-btn" onclick="event.stopPropagation();removeTlEntry(${ei})" title="削除">✕</button>`;
+                } else {
+                    html += `<span class="tl-date">${escapeHtml(entry.date || '日付未定')}</span>`;
+                    html += `<span class="tl-cat-badge ${catClass}">${escapeHtml(cat)}</span>`;
+                    html += `<span style="color:#fff;font-weight:600;font-size:13px;flex:1;">${escapeHtml(entry.title || '')}</span>`;
+                    html += `<span style="color:#52525b;font-size:11px;">${summary}</span>`;
+                }
+                html += '</div>';
+                // ボディ（アコーディオン内）
+                html += '<div class="tl-body">';
+                if (editable) {
+                    html += `<div style="margin-bottom:8px;"><label style="font-size:11px;color:#71717a;">タイトル</label><input class="tl-title-input" value="${escapeHtml(entry.title || '')}" data-ei="${ei}" data-field="title" onchange="onTlEdit(this)" style="width:100%;margin-top:2px;"></div>`;
+                }
+                if (entry.items && entry.items.length) {
+                    html += '<div class="tl-items">';
+                    entry.items.forEach((item, ii) => {
+                        html += '<div class="tl-item">';
+                        html += '<div class="tl-item-label">';
+                        if (editable) {
+                            html += `<input value="${escapeHtml(item.label || '')}" data-ei="${ei}" data-ii="${ii}" data-field="label" onchange="onTlEdit(this)">`;
+                            html += `<button class="tl-delete-btn tl-delete-sm" onclick="removeTlItem(${ei},${ii})" title="削除">✕</button>`;
+                        } else {
+                            html += `<span>${escapeHtml(item.label || '')}</span>`;
+                        }
+                        html += '</div>';
+                        if (item.children && item.children.length) {
+                            html += '<div class="tl-children">';
+                            item.children.forEach((child, ci) => {
+                                html += '<div class="tl-child">';
+                                if (editable) {
+                                    html += `<input value="${escapeHtml(child || '')}" data-ei="${ei}" data-ii="${ii}" data-ci="${ci}" data-field="child" onchange="onTlEdit(this)">`;
+                                    html += `<button class="tl-delete-btn tl-delete-sm" onclick="removeTlChild(${ei},${ii},${ci})" title="削除">✕</button>`;
+                                } else {
+                                    html += `<span>${escapeHtml(child || '')}</span>`;
+                                }
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                        }
+                        if (editable) {
+                            html += `<button onclick="addTlChild(${ei},${ii})" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;margin-left:28px;">＋ 小項目を追加</button>`;
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                }
+                if (editable) {
+                    html += `<button onclick="addTlItem(${ei})" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;margin-top:4px;">＋ 項目を追加</button>`;
+                }
+                html += '</div>'; // tl-body
+                html += '</div>'; // tl-entry
+            });
+            html += '</div>';
+            if (editable) {
+                html += `<button onclick="addTlEntry()" style="width:100%;padding:10px;background:#18181b;border:1px dashed #3f3f46;border-radius:8px;color:#6366f1;cursor:pointer;font-size:13px;font-weight:600;margin-top:8px;">＋ 新しいエントリを追加</button>`;
+            }
+            return html;
+        }
+
+        function toggleTlAccordion(headerEl) {
+            const entry = headerEl.closest('.tl-entry');
+            entry.classList.toggle('open');
+        }
+
+        function filterTimeline(uid, cat, btnEl) {
+            document.getElementById('filter-' + uid).querySelectorAll('.tl-filter-btn').forEach(b => b.classList.remove('active'));
+            btnEl.classList.add('active');
+            document.getElementById('tree-' + uid).querySelectorAll('.tl-entry').forEach(el => {
+                if (cat === 'all' || el.dataset.cat === cat) { el.classList.remove('filtered-out'); }
+                else { el.classList.add('filtered-out'); }
+            });
+        }
+
+        // タイムライン追加・削除
+        function addTlEntry() {
+            if (!pendingExtract?.structured?.timeline) return;
+            pendingExtract.structured.timeline.push({ date: "", title: "", category: "その他", items: [] });
+            refreshPreviewTab('timeline');
+        }
+        function removeTlEntry(ei) {
+            if (!pendingExtract?.structured?.timeline) return;
+            pendingExtract.structured.timeline.splice(ei, 1);
+            refreshPreviewTab('timeline');
+        }
+        function addTlItem(ei) {
+            if (!pendingExtract?.structured?.timeline?.[ei]) return;
+            pendingExtract.structured.timeline[ei].items.push({ label: "", children: [] });
+            refreshPreviewTab('timeline');
+        }
+        function removeTlItem(ei, ii) {
+            if (!pendingExtract?.structured?.timeline?.[ei]) return;
+            pendingExtract.structured.timeline[ei].items.splice(ii, 1);
+            refreshPreviewTab('timeline');
+        }
+        function addTlChild(ei, ii) {
+            if (!pendingExtract?.structured?.timeline?.[ei]?.items?.[ii]) return;
+            pendingExtract.structured.timeline[ei].items[ii].children.push("");
+            refreshPreviewTab('timeline');
+        }
+        function removeTlChild(ei, ii, ci) {
+            if (!pendingExtract?.structured?.timeline?.[ei]?.items?.[ii]) return;
+            pendingExtract.structured.timeline[ei].items[ii].children.splice(ci, 1);
+            refreshPreviewTab('timeline');
+        }
+        function onTlCatChange(el) {
+            if (!pendingExtract?.structured?.timeline) return;
+            pendingExtract.structured.timeline[parseInt(el.dataset.ei)].category = el.value;
+        }
+
+        function refreshPreviewTab(docType) {
+            const tab = document.getElementById('preview-tab-' + docType);
+            if (tab && pendingExtract?.structured?.[docType]) {
+                // スクロール位置を保持
+                const scrollable = tab.querySelector('.tl-tree, .editable-table-wrap');
+                const scrollTop = scrollable ? scrollable.scrollTop : 0;
+                const pageScrollTop = window.scrollY;
+
+                tab.innerHTML = renderStructuredContent(docType, pendingExtract.structured[docType], true);
+
+                // スクロール位置を復元
+                requestAnimationFrame(() => {
+                    const newScrollable = tab.querySelector('.tl-tree, .editable-table-wrap');
+                    if (newScrollable) newScrollable.scrollTop = scrollTop;
+                    window.scrollTo(0, pageScrollTop);
+                });
+            }
+        }
+
+        function renderTable(data, editable) {
+            if (!data || !data.headers) return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
+            const relCols = new Set(data.release_columns || []);
+
+            let html = '';
+            if (relCols.size > 0) {
+                html += '<div class="release-legend">';
+                html += '<span class="release-legend-dot">●</span><span>= この時点で情報解禁（クリックで切替）</span>';
+                html += '<span style="margin-left:8px;color:#52525b;">右側の列は自動で●になります</span>';
+                html += '</div>';
+            }
+
+            html += '<div class="editable-table-wrap"><table class="editable-table"><thead><tr>';
+            data.headers.forEach((h, ci) => {
+                const isRel = relCols.has(ci);
+                if (editable && isRel) {
+                    html += `<th class="release-col"><input value="${escapeHtml(h)}" style="background:transparent;border:none;color:#818cf8;font-size:11px;font-weight:700;text-align:center;width:80px;outline:none;" data-ci="${ci}" onchange="onHeaderEdit(this)"></th>`;
+                } else {
+                    html += `<th${isRel ? ' class="release-col"' : ''}>${escapeHtml(h)}</th>`;
+                }
+            });
+            if (editable) {
+                // ＋ボタンをヘッダー右端に
+                html += `<th class="add-col-th"><button onclick="addReleaseColumn()" style="background:#6366f1;border:none;color:#fff;cursor:pointer;font-size:16px;font-weight:700;border-radius:4px;width:28px;height:28px;line-height:28px;" title="解禁タイミング列を追加">＋</button></th>`;
+                html += '<th style="width:40px;"></th>';
+            }
+            html += '</tr></thead><tbody>';
+            (data.sections || []).forEach((section, si) => {
+                if (section.title) {
+                    const colSpan = data.headers.length + (editable ? 2 : 0);
+                    html += `<tr class="section-header"><td colspan="${colSpan}">【${escapeHtml(section.title)}】</td></tr>`;
+                }
+                (section.rows || []).forEach((row, ri) => {
+                    html += '<tr>';
+                    data.headers.forEach((_, ci) => {
+                        const val = (row[ci] != null) ? row[ci] : '';
+                        const isRel = relCols.has(ci);
+                        const isReleased = isRel && String(val).includes('●');
+                        const tdClass = isRel ? `release-cell${isReleased ? ' is-released' : ''}` : '';
+                        if (editable && isRel) {
+                            // 解禁列はクリックでトグル
+                            html += `<td class="${tdClass}" style="cursor:pointer;text-align:center;" onclick="toggleRelease(this, ${si}, ${ri}, ${ci})">`;
+                            html += `<span style="font-size:16px;${isReleased ? 'color:#ef4444;font-weight:900;' : 'color:#3f3f46;'}">${isReleased ? '●' : '○'}</span>`;
+                            html += '</td>';
+                        } else if (editable) {
+                            html += `<td class="${tdClass}"><input value="${escapeHtml(String(val))}" data-si="${si}" data-ri="${ri}" data-ci="${ci}" onchange="onTableEdit(this)"></td>`;
+                        } else {
+                            html += `<td class="${tdClass}" style="padding:6px 10px;color:${isReleased ? '#ef4444;font-weight:900;font-size:16px' : '#d4d4d8'};">${isReleased ? '●' : escapeHtml(String(val))}</td>`;
+                        }
+                    });
+                    if (editable) {
+                        html += '<td></td>'; // ＋列のスペーサー
+                        html += `<td><button onclick="removeTableRow(${si},${ri})" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:14px;" title="行を削除">✕</button></td>`;
+                    }
+                    html += '</tr>';
+                });
+                if (editable) {
+                    const colSpan = data.headers.length + 2;
+                    html += `<tr><td colspan="${colSpan}"><button onclick="addTableRow(${si})" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;padding:4px 8px;">＋ 行を追加</button></td></tr>`;
+                }
+            });
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        // 解禁●トグル：クリックした列以降を全て●にする
+        function toggleRelease(td, si, ri, ci) {
+            // どのdocTypeか判定
+            const tabContent = td.closest('.detail-tab-content');
+            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
+            const data = pendingExtract?.structured?.[docType];
+            if (!data) return;
+
+            const relCols = data.release_columns || [];
+            const row = data.sections[si]?.rows[ri];
+            if (!row) return;
+
+            const currentVal = String(row[ci] || '');
+            const isCurrentlyReleased = currentVal.includes('●');
+
+            if (isCurrentlyReleased) {
+                // この列と右側を全て解除
+                for (const rc of relCols) {
+                    if (rc >= ci) row[rc] = '';
+                }
+            } else {
+                // この列と右側を全て●に
+                for (const rc of relCols) {
+                    if (rc >= ci) row[rc] = '●';
+                }
+                // この列より左で●がないものはそのまま
+            }
+
+            refreshPreviewTab(docType);
+        }
+
+        // テーブル行の追加・削除
+        function addTableRow(si) {
+            const tabContent = event.target.closest('.detail-tab-content');
+            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
+            const data = pendingExtract?.structured?.[docType];
+            if (!data?.sections?.[si]) return;
+            const colCount = data.headers.length;
+            data.sections[si].rows.push(new Array(colCount).fill(''));
+            refreshPreviewTab(docType);
+        }
+
+        function removeTableRow(si, ri) {
+            const tabContent = event.target.closest('.detail-tab-content');
+            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
+            const data = pendingExtract?.structured?.[docType];
+            if (!data?.sections?.[si]) return;
+            data.sections[si].rows.splice(ri, 1);
+            refreshPreviewTab(docType);
+        }
+
+        function addReleaseColumn() {
+            const tabContent = event.target.closest('.detail-tab-content');
+            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
+            const data = pendingExtract?.structured?.[docType];
+            if (!data) return;
+            const newName = prompt("新しい解禁タイミング列の名前を入力（例: 11月PV3）");
+            if (!newName) return;
+            const newIdx = data.headers.length;
+            data.headers.push(newName);
+            if (!data.release_columns) data.release_columns = [];
+            data.release_columns.push(newIdx);
+            // 全行に空セルを追加
+            for (const section of data.sections) {
+                for (const row of section.rows) {
+                    row.push("");
+                }
+            }
+            refreshPreviewTab(docType);
+        }
+
+        function onHeaderEdit(el) {
+            const tabContent = el.closest('.detail-tab-content');
+            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
+            const data = pendingExtract?.structured?.[docType];
+            if (!data) return;
+            data.headers[parseInt(el.dataset.ci)] = el.value;
+        }
+
+        // 編集イベント（pendingExtractに反映）
+        function onTlEdit(el) {
+            if (!pendingExtract || !pendingExtract.structured || !pendingExtract.structured.timeline) return;
+            const tl = pendingExtract.structured.timeline;
+            const ei = parseInt(el.dataset.ei);
+            const field = el.dataset.field;
+            if (field === 'date') { tl[ei].date = el.value; }
+            else if (field === 'title') { tl[ei].title = el.value; }
+            else if (field === 'label') { tl[ei].items[parseInt(el.dataset.ii)].label = el.value; }
+            else if (field === 'child') { tl[ei].items[parseInt(el.dataset.ii)].children[parseInt(el.dataset.ci)] = el.value; }
+        }
+
+        function onTableEdit(el) {
+            if (!pendingExtract) return;
+            const tabId = el.closest('.detail-tab-content')?.id || '';
+            const docType = tabId.includes('text_master') ? 'text_master' : 'budget';
+            const data = pendingExtract.structured?.[docType];
+            if (!data) return;
+            const si = parseInt(el.dataset.si), ri = parseInt(el.dataset.ri), ci = parseInt(el.dataset.ci);
+            if (data.sections[si] && data.sections[si].rows[ri]) {
+                data.sections[si].rows[ri][ci] = el.value;
+            }
+        }
+
+        function switchPreviewTab(tabKey, btnEl) {
+            btnEl.parentElement.querySelectorAll(".detail-tab-btn").forEach(b => b.classList.remove("active"));
+            btnEl.classList.add("active");
+            const container = btnEl.closest("#pj-extract-fields") || document.getElementById("pj-extract-fields");
+            container.querySelectorAll(".detail-tab-content").forEach(c => c.classList.remove("active"));
+            document.getElementById("preview-tab-" + tabKey).classList.add("active");
+        }
+
+        function confirmProject() {
+            if (!pendingExtract) return;
+            const projects = getProjects();
+            const id = "pj_" + Date.now();
+            projects[id] = {
+                name: pendingExtract.name,
+                urls: pendingExtract.urls,
+                extracted: pendingExtract.extracted,
+                structured: pendingExtract.structured,
+                documents: pendingExtract.documents,
+                created_at: new Date().toISOString(),
+            };
+            saveProjects(projects);
+            pendingExtract = null;
+            document.getElementById("pj-extract-preview").style.display = "none";
+            // フォームクリア
+            document.getElementById("pj-name").value = "";
+            ["timeline", "text_master", "budget"].forEach(k => {
+                document.getElementById("pj-url-" + k).value = "";
+                document.getElementById("pj-status-" + k).textContent = "";
+            });
+            renderProjectList();
+        }
+
+        function cancelProject() {
+            pendingExtract = null;
+            document.getElementById("pj-extract-preview").style.display = "none";
+        }
+
+        function deleteProject(id) {
+            if (!confirm("このプロジェクトを削除しますか？")) return;
+            const projects = getProjects();
+            delete projects[id];
+            saveProjects(projects);
+            renderProjectList();
+        }
+
+        async function reExtractProject(id) {
+            const projects = getProjects();
+            const p = projects[id];
+            if (!p || !p.urls) return;
+
+            // URLを復元してフォームに入れ、再登録を実行
+            document.getElementById("pj-name").value = p.name;
+            for (const [key, url] of Object.entries(p.urls)) {
+                document.getElementById("pj-url-" + key).value = url;
+            }
+            // 古いプロジェクトを削除してから再登録
+            delete projects[id];
+            saveProjects(projects);
+            renderProjectList();
+            await registerProject();
+        }
+
+        // ===== コンテンツ生成: プロジェクト自動入力 =====
+        function applyProject() {
+            const select = document.getElementById("project-select");
+            const projectId = select.value;
+            if (!projectId) return;
+
+            const projects = getProjects();
+            const p = projects[projectId];
+            if (!p || !p.extracted) return;
+
+            const e = p.extracted;
+
+            // 現在のフォームにデータを自動入力
+            if (currentContentType === "tweet") {
+                setField("title", e.title);
+                setField("hashtag", e.hashtags);
+                setField("url", e.official_url);
+                // key_infoには放送情報やキャスト等を詰める
+                const keyParts = [];
+                if (e.broadcast_info) keyParts.push(e.broadcast_info);
+                if (e.cast) keyParts.push(e.cast);
+                if (keyParts.length) setField("key_info", keyParts.join("\n"));
+            } else {
+                setField("title", e.title);
+                setField("staff_cast", [e.staff, e.cast].filter(Boolean).join("\n"));
+                setField("synopsis", e.synopsis);
+                setField("source_material", e.source_material);
+                const links = [e.official_url, e.official_x, e.hashtags].filter(Boolean).join("\n");
+                setField("official_links", links);
+                // リード文の要点
+                const lead = [e.broadcast_info].filter(Boolean).join("\n");
+                if (lead) setField("lead_summary", lead);
+            }
+        }
+
+        function setField(fieldId, value) {
+            const el = document.getElementById("cf-" + fieldId);
+            if (el && value) el.value = value;
+        }
+
+        function toggleProjectDetail(id) {
+            const detail = document.getElementById("pdetail-" + id);
+            const titleEl = detail.parentElement.querySelector(".project-card-title");
+            if (detail.classList.contains("open")) {
+                detail.classList.remove("open");
+                titleEl.textContent = titleEl.textContent.replace("▼", "▶");
+            } else {
+                detail.classList.add("open");
+                titleEl.textContent = titleEl.textContent.replace("▶", "▼");
+            }
+        }
+
+        function switchDetailTab(projectId, tabKey, btnEl) {
+            // タブボタン切替
+            btnEl.parentElement.querySelectorAll(".detail-tab-btn").forEach(b => b.classList.remove("active"));
+            btnEl.classList.add("active");
+            // コンテンツ切替
+            const card = btnEl.closest(".project-card");
+            card.querySelectorAll(".detail-tab-content").forEach(c => c.classList.remove("active"));
+            document.getElementById("dtab-" + projectId + "-" + tabKey).classList.add("active");
+        }
+
+        // 初期化
+        renderProjectList();
+
+        // ===== 広報レポート: CSV =====
         const csvDrop = document.getElementById("csv-drop");
         const csvFile = document.getElementById("csv-file");
-
         csvDrop.addEventListener("dragover", e => { e.preventDefault(); csvDrop.classList.add("dragover"); });
         csvDrop.addEventListener("dragleave", () => csvDrop.classList.remove("dragover"));
         csvDrop.addEventListener("drop", e => {
-            e.preventDefault();
-            csvDrop.classList.remove("dragover");
+            e.preventDefault(); csvDrop.classList.remove("dragover");
             if (e.dataTransfer.files.length) handleCsvFile(e.dataTransfer.files[0]);
         });
-        csvFile.addEventListener("change", e => {
-            if (e.target.files.length) handleCsvFile(e.target.files[0]);
-        });
+        csvFile.addEventListener("change", e => { if (e.target.files.length) handleCsvFile(e.target.files[0]); });
 
         async function handleCsvFile(file) {
             const text = await file.text();
             try {
                 const res = await fetch("/api/csv_parse", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: authHeaders(),
                     body: JSON.stringify({ csv: text }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
-
                 csvData = data;
                 csvDrop.textContent = file.name + " (読み込み済み)";
                 csvDrop.classList.add("loaded");
-
                 const s = data.summary;
                 const isOverview = data.csv_type === "account_overview";
                 const grid = document.getElementById("csv-stats-grid");
@@ -482,10 +1690,8 @@
                 if (isOverview && s.total_follows) items.push(["新規フォロー", s.total_follows.toLocaleString()]);
                 if (isOverview && s.total_profile_visits) items.push(["プロフィール訪問", s.total_profile_visits.toLocaleString()]);
                 grid.innerHTML = items.map(([lbl, val]) => `<div class="csv-stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`).join("");
-
                 const detailLabel = document.getElementById("csv-detail-label");
                 detailLabel.textContent = isOverview ? "トップ日（インプレッション順）" : "トップツイート（いいね数順）";
-
                 const tbl = document.getElementById("csv-top-tweets-table");
                 if (data.top_tweets.length) {
                     let html = isOverview
@@ -499,7 +1705,6 @@
                     html += "</tbody></table>";
                     tbl.innerHTML = html;
                 }
-
                 document.getElementById("csv-stats").classList.add("active");
             } catch (e) {
                 csvDrop.textContent = "エラー: " + e.message;
@@ -507,21 +1712,19 @@
             }
         }
 
-        // Enter キーで生成
         document.getElementById("anime-title").addEventListener("keydown", function(e) {
             if (e.key === "Enter") generateReport();
         });
 
+        // ===== 広報レポート: 生成 =====
         async function generateReport() {
             const title = document.getElementById("anime-title").value.trim();
             if (!title) return;
-
             currentTitle = title;
             const btn = document.getElementById("btn-generate");
             const loading = document.getElementById("loading");
             const result = document.getElementById("result-section");
             const errorMsg = document.getElementById("error-msg");
-
             btn.disabled = true;
             loading.classList.add("active");
             result.classList.remove("active");
@@ -529,35 +1732,25 @@
             document.getElementById("progress-bar").style.width = "0%";
             document.getElementById("progress-step").textContent = "0 / 6";
             document.getElementById("loading-text").textContent = "検索を開始しています...";
-
             try {
                 const res = await fetch("/api/generate", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: authHeaders(),
                     body: JSON.stringify({ title }),
                 });
-
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || "エラーが発生しました");
-                }
-
+                if (!res.ok) { const err = await res.json(); throw new Error(err.error || "エラーが発生しました"); }
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = "";
-
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split("\n");
                     buffer = lines.pop();
-
                     for (const line of lines) {
                         if (!line.startsWith("data: ")) continue;
                         const data = JSON.parse(line.slice(6));
-
                         if (data.type === "progress") {
                             const pct = Math.round((data.step / data.total) * 100);
                             document.getElementById("progress-bar").style.width = pct + "%";
@@ -565,10 +1758,7 @@
                             document.getElementById("loading-text").textContent = data.message;
                         } else if (data.type === "done") {
                             let report = data.report;
-                            // CSVデータがあればレポートに統合
-                            if (csvData) {
-                                report = injectCsvSection(report, csvData);
-                            }
+                            if (csvData) report = injectCsvSection(report, csvData);
                             currentReport = report;
                             document.getElementById("stat-pr").textContent = data.stats.press_releases;
                             document.getElementById("stat-media").textContent = data.stats.media_coverage;
@@ -580,71 +1770,38 @@
                         }
                     }
                 }
-            } catch (e) {
-                errorMsg.textContent = e.message;
-                errorMsg.classList.add("active");
-            } finally {
-                btn.disabled = false;
-                loading.classList.remove("active");
-            }
+            } catch (e) { errorMsg.textContent = e.message; errorMsg.classList.add("active"); }
+            finally { btn.disabled = false; loading.classList.remove("active"); }
         }
 
         function renderMarkdown(md) {
-            // Simple markdown to HTML converter
             let html = md;
-
-            // Escape HTML
             html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-            // Headers
             html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
             html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
             html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
-
-            // Bold
             html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-
-            // Italic
             html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-
-            // Links
             html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-            // Bare URLs
             html = html.replace(/(^|[^"(])(https?:\/\/[^\s<)]+)/gm, '$1<a href="$2" target="_blank">$2</a>');
-
-            // Horizontal rule
             html = html.replace(/^---$/gm, "<hr>");
-
-            // Tables
             html = html.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm, function(match, header, sep, body) {
                 let table = "<table><thead><tr>";
-                header.split("|").filter(c => c.trim()).forEach(cell => {
-                    table += `<th>${cell.trim()}</th>`;
-                });
+                header.split("|").filter(c => c.trim()).forEach(cell => { table += `<th>${cell.trim()}</th>`; });
                 table += "</tr></thead><tbody>";
                 body.trim().split("\n").forEach(row => {
                     table += "<tr>";
-                    row.split("|").filter(c => c.trim()).forEach(cell => {
-                        table += `<td>${cell.trim()}</td>`;
-                    });
+                    row.split("|").filter(c => c.trim()).forEach(cell => { table += `<td>${cell.trim()}</td>`; });
                     table += "</tr>";
                 });
                 table += "</tbody></table>";
                 return table;
             });
-
-            // Unordered list
             html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
             html = html.replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>");
-
-            // Paragraphs
             html = html.replace(/^(?!<[huhlt]|<li|<a|<str)(.+)$/gm, "<p>$1</p>");
-
-            // Clean up
             html = html.replace(/<p><\/p>/g, "");
             html = html.replace(/\n{2,}/g, "\n");
-
             return html;
         }
 
@@ -661,18 +1818,14 @@
             section += `| URLクリック合計 | **${s.total_url_clicks.toLocaleString()}** |\n`;
             section += `| 平均インプレッション | **${s.avg_impressions.toLocaleString()}** |\n`;
             section += `| エンゲージメント率 | **${s.engagement_rate}%** |\n`;
-
             if (csv.top_tweets && csv.top_tweets.length > 0) {
                 section += "\n### トップツイート（いいね数順）\n\n";
-                section += "| # | ツイート | いいね | RT | インプレッション |\n";
-                section += "|---|---------|-------|-----|------------------|\n";
+                section += "| # | ツイート | いいね | RT | インプレッション |\n|---|---------|-------|-----|------------------|\n";
                 csv.top_tweets.slice(0, 5).forEach((t, i) => {
                     const txt = t.text.replace(/\|/g, "\\|").substring(0, 40);
                     section += `| ${i+1} | ${txt}... | ${t.likes} | ${t.retweets} | ${t.impressions.toLocaleString()} |\n`;
                 });
             }
-
-            // "## サマリー" の前に挿入
             return report.replace(/\n---\n\n## サマリー/, section + "\n---\n\n## サマリー");
         }
 
@@ -681,10 +1834,7 @@
                 const btn = document.getElementById("btn-copy");
                 btn.textContent = "コピーしました!";
                 btn.classList.add("copied");
-                setTimeout(() => {
-                    btn.textContent = "Markdownをコピー";
-                    btn.classList.remove("copied");
-                }, 2000);
+                setTimeout(() => { btn.textContent = "Markdownをコピー"; btn.classList.remove("copied"); }, 2000);
             });
         }
 
@@ -703,16 +1853,8 @@
             const preview = document.getElementById("report-preview");
             const raw = document.getElementById("raw-markdown");
             const btn = document.getElementById("btn-toggle");
-
-            if (showingRaw) {
-                preview.style.display = "none";
-                raw.classList.add("active");
-                btn.textContent = "プレビューに戻す";
-            } else {
-                preview.style.display = "block";
-                raw.classList.remove("active");
-                btn.textContent = "Markdown原文を表示";
-            }
+            if (showingRaw) { preview.style.display = "none"; raw.classList.add("active"); btn.textContent = "プレビューに戻す"; }
+            else { preview.style.display = "block"; raw.classList.remove("active"); btn.textContent = "Markdown原文を表示"; }
         }
     </script>
 </body>
