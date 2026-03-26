@@ -3790,6 +3790,37 @@ ${fieldDefs}
         let _currentShareProjectId = null;
         let _sharedProjectsCache = [];
 
+        function showMembersPopup(id) {
+            const info = window['_sharedMembers_' + id];
+            if (!info) return;
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            const myEmail = firebaseAuth.currentUser?.email || "";
+            let membersHtml = `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#1a3a1a;border-radius:8px;margin-bottom:6px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#4ade80;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;">${info.owner[0].toUpperCase()}</div>
+                <div><div style="color:#e4e4e7;font-size:13px;">${escapeHtml(info.owner)}</div><div style="color:#4ade80;font-size:11px;">オーナー</div></div>
+            </div>`;
+            info.members.forEach(m => {
+                const rl = m.role === "editor" ? "編集者" : "閲覧者";
+                const color = m.role === "editor" ? "#60a5fa" : "#a1a1aa";
+                const bg = m.role === "editor" ? "#1a2a4a" : "#27272a";
+                const isMe = m.sharedWith === myEmail;
+                membersHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:${bg};border-radius:8px;margin-bottom:6px;${isMe ? 'border:1px solid ' + color : ''}">
+                    <div style="width:32px;height:32px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;">${m.sharedWith[0].toUpperCase()}</div>
+                    <div><div style="color:#e4e4e7;font-size:13px;">${escapeHtml(m.sharedWith)}${isMe ? ' <span style="color:#fbbf24;">（自分）</span>' : ''}</div><div style="color:${color};font-size:11px;">${rl}</div></div>
+                </div>`;
+            });
+            modal.innerHTML = `<div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:24px;width:400px;max-width:90vw;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="color:#fff;font-size:16px;margin:0;">プロジェクトメンバー</h3>
+                    <button onclick="this.closest('div[style*=position]').remove()" style="background:none;border:none;color:#71717a;font-size:20px;cursor:pointer;">✕</button>
+                </div>
+                ${membersHtml}
+            </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        }
+
         function openShareModal(projectId) {
             _currentShareProjectId = projectId;
             const projects = getProjects();
@@ -3991,23 +4022,11 @@ ${fieldDefs}
                     p._shareProjectId = s.projectId;
                     _projectsCache[id] = p;
 
-                    // メンバー一覧HTML
+                    // メンバー一覧データを保存（ポップアップ用）
                     const members = membersByProject[s.projectId] || [];
-                    const memberHtml = `<div class="shared-members-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-                        <span style="font-size:11px;color:#6366f1;font-weight:600;margin-right:4px;">👥 メンバー:</span>
-                        <span class="shared-member-chip" style="font-size:11px;background:#1a3a1a;color:#4ade80;padding:2px 8px;border-radius:10px;">
-                            ${escapeHtml(s.ownerEmail.split('@')[0])} <span style="color:#71717a;">オーナー</span>
-                        </span>
-                        ${members.map(m => {
-                            const rl = m.role === "editor" ? "編集者" : "閲覧者";
-                            const bg = m.role === "editor" ? "#1a2a4a" : "#2a2a2a";
-                            const color = m.role === "editor" ? "#60a5fa" : "#a1a1aa";
-                            const isMe = m.sharedWith === (firebaseAuth.currentUser?.email || "");
-                            return `<span class="shared-member-chip" style="font-size:11px;background:${bg};color:${color};padding:2px 8px;border-radius:10px;${isMe ? 'border:1px solid ' + color + ';' : ''}">
-                                ${escapeHtml(m.sharedWith.split('@')[0])} <span style="color:#71717a;">${rl}</span>${isMe ? ' <span style="color:#fbbf24;">★</span>' : ''}
-                            </span>`;
-                        }).join('')}
-                    </div>`;
+                    window['_sharedMembers_' + id] = { owner: s.ownerEmail, members };
+                    const memberCount = members.length + 1; // +1 for owner
+                    const memberBtnHtml = `<button onclick="event.stopPropagation(); showMembersPopup('${id}')" style="font-size:11px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:3px 10px;border-radius:6px;cursor:pointer;">👥 ${memberCount}人</button>`;
 
                     // 自分のプロジェクトと同じタブ構造を生成
                     const structured = p.structured || {};
@@ -4044,8 +4063,7 @@ ${fieldDefs}
                                 <span class="shared-badge-owner">by ${escapeHtml(s.ownerEmail)}</span>
                             </div>
                         </div>
-                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
-                        ${memberHtml}
+                        <div class="project-card-meta" style="display:flex;align-items:center;gap:8px;">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'} ${memberBtnHtml}</div>
                         <div class="project-detail" id="pdetail-${id}">
                             <div class="detail-tab-nav">${tabNav}</div>
                             ${tabContents}
