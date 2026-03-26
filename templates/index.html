@@ -1691,48 +1691,43 @@
             const uid = firebaseAuth.currentUser?.uid;
             appLog("info", "Firestore", "loadProjects called, uid: " + uid);
 
-            // まずlocalStorageから即時読み込み（高速表示）
+            // 古いlocalStorageキーを掃除（アカウント混ざり防止）
             try {
-                const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
-                if (Object.keys(local).length > 0 && Object.keys(_projectsCache).length === 0) {
-                    _projectsCache = local;
-                    console.log(`[localStorage] Loaded ${Object.keys(local).length} projects (fast)`);
-                    renderProjectList();
-                }
+                localStorage.removeItem("anime_projects"); // 旧キー（UIDなし）削除
             } catch(e) {}
 
             if (!uid) {
-                appLog("warn", "Firestore", "No uid, using localStorage only");
+                appLog("warn", "Firestore", "No uid, skipping");
+                _projectsCache = {};
+                renderProjectList();
                 return;
             }
 
+            const lsKey = "anime_projects_" + uid;
+
             try {
+                // Firestore を常に優先
                 const snapshot = await db.collection("users").doc(uid).collection("projects").get();
                 const projects = {};
                 snapshot.forEach(doc => { projects[doc.id] = restoreFromFirestore(doc.data()); });
-                console.log(`[Firestore] Loaded ${Object.keys(projects).length} projects from server`);
+                appLog("info", "Firestore", `Loaded ${Object.keys(projects).length} projects from server`);
 
-                if (Object.keys(projects).length > 0) {
-                    _projectsCache = projects;
-                    // localStorageにもバックアップ
-                    localStorage.setItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon"), JSON.stringify(projects));
-                } else {
-                    // Firestoreが空ならlocalStorageから移行
-                    const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
-                    if (Object.keys(local).length > 0) {
-                        appLog("info", "Firestore", "Migrating from localStorage...");
-                        for (const [id, data] of Object.entries(local)) {
-                            const fsData = prepareForFirestore(data);
-                            await db.collection("users").doc(uid).collection("projects").doc(id).set(fsData);
-                            _projectsCache[id] = data;
-                        }
-                        console.log(`[Firestore] Migrated ${Object.keys(local).length} projects`);
-                    }
-                }
+                _projectsCache = projects;
+                // localStorageにバックアップ（自分のUIDキーのみ）
+                try { localStorage.setItem(lsKey, JSON.stringify(projects)); } catch(e) {}
+
                 _firestoreReady = true;
                 renderProjectList();
             } catch (err) {
-                appLog("error", "Firestore", "Load error:", err, "- using localStorage fallback");
+                appLog("error", "Firestore", "Load error: " + err.message + " - trying localStorage fallback");
+                // Firestoreが失敗した場合のみlocalStorageを使用
+                try {
+                    const local = JSON.parse(localStorage.getItem(lsKey) || "{}");
+                    if (Object.keys(local).length > 0) {
+                        _projectsCache = local;
+                        renderProjectList();
+                    }
+                } catch(e) {}
             }
         }
 
