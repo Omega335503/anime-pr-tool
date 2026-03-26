@@ -3790,35 +3790,55 @@ ${fieldDefs}
         let _currentShareProjectId = null;
         let _sharedProjectsCache = [];
 
-        function showMembersPopup(id) {
+        async function showMembersPopup(id) {
             const info = window['_sharedMembers_' + id];
             if (!info) return;
             const modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
-            const myEmail = firebaseAuth.currentUser?.email || "";
-            let membersHtml = `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#1a3a1a;border-radius:8px;margin-bottom:6px;">
-                <div style="width:32px;height:32px;border-radius:50%;background:#4ade80;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;">${info.owner[0].toUpperCase()}</div>
-                <div><div style="color:#e4e4e7;font-size:13px;">${escapeHtml(info.owner)}</div><div style="color:#4ade80;font-size:11px;">オーナー</div></div>
-            </div>`;
-            info.members.forEach(m => {
-                const rl = m.role === "editor" ? "編集者" : "閲覧者";
-                const color = m.role === "editor" ? "#60a5fa" : "#a1a1aa";
-                const bg = m.role === "editor" ? "#1a2a4a" : "#27272a";
-                const isMe = m.sharedWith === myEmail;
-                membersHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:${bg};border-radius:8px;margin-bottom:6px;${isMe ? 'border:1px solid ' + color : ''}">
-                    <div style="width:32px;height:32px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000;">${m.sharedWith[0].toUpperCase()}</div>
-                    <div><div style="color:#e4e4e7;font-size:13px;">${escapeHtml(m.sharedWith)}${isMe ? ' <span style="color:#fbbf24;">（自分）</span>' : ''}</div><div style="color:${color};font-size:11px;">${rl}</div></div>
-                </div>`;
-            });
-            modal.innerHTML = `<div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:24px;width:400px;max-width:90vw;">
+            modal.innerHTML = `<div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:24px;width:420px;max-width:90vw;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                     <h3 style="color:#fff;font-size:16px;margin:0;">プロジェクトメンバー</h3>
                     <button onclick="this.closest('div[style*=position]').remove()" style="background:none;border:none;color:#71717a;font-size:20px;cursor:pointer;">✕</button>
                 </div>
-                ${membersHtml}
+                <div id="members-popup-list" style="color:#71717a;font-size:13px;">読み込み中...</div>
             </div>`;
             document.body.appendChild(modal);
             modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+            // プロフィール情報を非同期取得
+            const myEmail = firebaseAuth.currentUser?.email || "";
+            const allEmails = [info.owner, ...info.members.map(m => m.sharedWith)];
+            const profiles = {};
+            await Promise.all(allEmails.map(async email => { profiles[email] = await getProfileByEmail(email); }));
+
+            function memberCard(email, role, roleColor, bg) {
+                const p = profiles[email] || {};
+                const name = p.customName || p.displayName || email.split('@')[0];
+                const company = p.company || "";
+                const photo = p.photoURL || "";
+                const isMe = email === myEmail;
+                const avatarHtml = photo
+                    ? `<img src="${photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`
+                    : `<div style="width:36px;height:36px;border-radius:50%;background:${roleColor};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#000;">${name[0].toUpperCase()}</div>`;
+                return `<div style="display:flex;align-items:center;gap:12px;padding:10px;background:${bg};border-radius:8px;margin-bottom:6px;${isMe ? 'border:1px solid ' + roleColor : ''}">
+                    ${avatarHtml}
+                    <div style="flex:1;min-width:0;">
+                        <div style="color:#e4e4e7;font-size:13px;font-weight:600;">${escapeHtml(name)}${isMe ? ' <span style="color:#fbbf24;font-weight:400;">（自分）</span>' : ''}</div>
+                        ${company ? `<div style="color:#a1a1aa;font-size:11px;">${escapeHtml(company)}</div>` : ''}
+                        <div style="color:#71717a;font-size:11px;">${escapeHtml(email)}</div>
+                    </div>
+                    <span style="color:${roleColor};font-size:11px;white-space:nowrap;">${role}</span>
+                </div>`;
+            }
+
+            let html = memberCard(info.owner, "オーナー", "#4ade80", "#1a3a1a");
+            info.members.forEach(m => {
+                const rl = m.role === "editor" ? "編集者" : "閲覧者";
+                const color = m.role === "editor" ? "#60a5fa" : "#a1a1aa";
+                const bg = m.role === "editor" ? "#1a2a4a" : "#27272a";
+                html += memberCard(m.sharedWith, rl, color, bg);
+            });
+            document.getElementById("members-popup-list").innerHTML = html;
         }
 
         function openShareModal(projectId) {
@@ -4090,22 +4110,76 @@ ${fieldDefs}
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
+            // 既存のcompany/customNameを上書きしない（merge）
             db.collection("user_profiles").doc(user.uid).set(profileData, { merge: true })
                 .then(() => console.log("[Profile] Saved"))
                 .catch(err => console.warn("[Profile] Save error:", err));
         }
 
-        function openProfileModal() {
+        async function saveProfileField(field, value) {
+            const uid = firebaseAuth.currentUser?.uid;
+            if (!uid) return;
+            try {
+                await db.collection("user_profiles").doc(uid).set({ [field]: value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                appLog("action", "Profile", "Updated " + field);
+            } catch(e) { appLog("error", "Profile", "Save failed: " + e.message); }
+        }
+
+        // メールからプロフィール情報を取得するキャッシュ
+        const _profileCache = {};
+        async function getProfileByEmail(email) {
+            if (_profileCache[email]) return _profileCache[email];
+            try {
+                const snap = await db.collection("user_profiles").where("email", "==", email).limit(1).get();
+                if (!snap.empty) {
+                    _profileCache[email] = snap.docs[0].data();
+                    return _profileCache[email];
+                }
+            } catch(e) {}
+            return null;
+        }
+
+        async function openProfileModal() {
             const user = firebaseAuth.currentUser;
             const saved = JSON.parse(localStorage.getItem("anime_pr_user") || "{}");
 
-            const name = user?.displayName || saved.name || "---";
             const email = user?.email || saved.email || "---";
             const photo = user?.photoURL || saved.picture || "";
 
-            document.getElementById("profile-name").textContent = name;
+            // Firestoreからプロフィール取得
+            let profile = {};
+            try {
+                const doc = await db.collection("user_profiles").doc(user.uid).get();
+                if (doc.exists) profile = doc.data();
+            } catch(e) {}
+
+            const displayName = profile.customName || user?.displayName || saved.name || "---";
+            const company = profile.company || "";
+
+            document.getElementById("profile-name").textContent = displayName;
             document.getElementById("profile-email").textContent = email;
             document.getElementById("profile-avatar").src = photo;
+
+            // 編集フォーム
+            const editArea = document.getElementById("profile-edit-area");
+            if (editArea) editArea.remove();
+            const profileHeader = document.getElementById("profile-name").parentElement;
+            const editHtml = document.createElement("div");
+            editHtml.id = "profile-edit-area";
+            editHtml.style.cssText = "margin-top:12px;padding:12px;background:#09090b;border-radius:8px;";
+            editHtml.innerHTML = `
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:11px;color:#71717a;">表示名</label>
+                    <input id="profile-edit-name" value="${escapeHtml(profile.customName || user?.displayName || '')}" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;">
+                </div>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:11px;color:#71717a;">会社名</label>
+                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: RASEN株式会社" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;">
+                </div>
+                <button onclick="saveProfileEdits()" style="padding:6px 16px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-size:12px;cursor:pointer;">保存</button>
+                <span id="profile-save-msg" style="color:#4ade80;font-size:11px;margin-left:8px;display:none;">✓ 保存しました</span>
+            `;
+            profileHeader.parentElement.insertBefore(editHtml, profileHeader.nextSibling);
 
             // 自分のプロジェクト一覧
             const projects = getProjects();
@@ -4141,6 +4215,24 @@ ${fieldDefs}
 
             document.getElementById("profile-modal").classList.remove("hidden");
             loadActivityLogs();
+        }
+
+        async function saveProfileEdits() {
+            const name = document.getElementById("profile-edit-name")?.value?.trim();
+            const company = document.getElementById("profile-edit-company")?.value?.trim();
+            const uid = firebaseAuth.currentUser?.uid;
+            if (!uid) return;
+            try {
+                await db.collection("user_profiles").doc(uid).set({
+                    customName: name || "",
+                    company: company || "",
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                document.getElementById("profile-name").textContent = name || firebaseAuth.currentUser.displayName;
+                const msg = document.getElementById("profile-save-msg");
+                if (msg) { msg.style.display = "inline"; setTimeout(() => msg.style.display = "none", 2000); }
+                _profileCache[firebaseAuth.currentUser.email] = null; // キャッシュクリア
+            } catch(e) { alert("保存に失敗しました: " + e.message); }
         }
 
         function closeProfileModal() {
