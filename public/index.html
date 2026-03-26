@@ -1192,27 +1192,70 @@
             } catch { return null; }
         }
 
-        // Firebase Popup認証（メイン）
+        // 画面上デバッグ表示
+        function showDebugMsg(msg, isError) {
+            let el = document.getElementById('login-debug');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'login-debug';
+                el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:#18181b;border-top:2px solid #ef4444;padding:8px 12px;font-family:monospace;font-size:11px;z-index:99999;color:#a1a1aa;';
+                document.body.appendChild(el);
+            }
+            const line = document.createElement('div');
+            line.style.color = isError ? '#ef4444' : '#6366f1';
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // Firebase認証（ポップアップ→リダイレクトフォールバック）
         function signInWithGoogle() {
+            showDebugMsg('signInWithGoogle() called');
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
+
+            showDebugMsg('Trying signInWithPopup...');
             firebaseAuth.signInWithPopup(provider).then(result => {
-                const u = result.user;
-                authToken = result.credential?.idToken || "firebase";
-                const user = {
-                    name: u.displayName,
-                    email: u.email,
-                    picture: u.photoURL,
-                    token: authToken,
-                    exp: Math.floor(Date.now()/1000) + 3600,
-                };
-                localStorage.setItem("anime_pr_user", JSON.stringify(user));
-                appLog("action", "Auth", "Signed in via popup", u.email);
-                showApp(user);
+                showDebugMsg('Popup success: ' + result.user.email);
+                handleFirebaseUser(result.user, result.credential?.idToken);
             }).catch(err => {
-                appLog("error", "Auth", "Popup sign-in failed", err.message);
-                alert("ログインに失敗しました: " + err.message);
+                showDebugMsg('Popup failed: ' + err.code + ' - ' + err.message, true);
+                appLog("warn", "Auth", "Popup failed, trying redirect", err.code);
+                if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+                    showDebugMsg('Falling back to signInWithRedirect...');
+                    firebaseAuth.signInWithRedirect(provider).catch(e2 => {
+                        showDebugMsg('Redirect also failed: ' + e2.message, true);
+                    });
+                } else {
+                    showDebugMsg('Error: ' + err.message, true);
+                }
             });
+        }
+
+        // リダイレクト結果の処理（ページ読み込み時）
+        firebaseAuth.getRedirectResult().then(result => {
+            if (result && result.user) {
+                showDebugMsg && showDebugMsg('Redirect success: ' + result.user.email);
+                handleFirebaseUser(result.user, result.credential?.idToken);
+            }
+        }).catch(err => {
+            if (err.code) {
+                typeof showDebugMsg === 'function' && showDebugMsg('Redirect result error: ' + err.message, true);
+            }
+        });
+
+        function handleFirebaseUser(u, idToken) {
+            authToken = idToken || "firebase";
+            const user = {
+                name: u.displayName,
+                email: u.email,
+                picture: u.photoURL,
+                token: authToken,
+                exp: Math.floor(Date.now()/1000) + 3600,
+            };
+            localStorage.setItem("anime_pr_user", JSON.stringify(user));
+            appLog("action", "Auth", "Signed in", u.email);
+            showApp(user);
         }
 
         // One Tap コールバック（フォールバック）
