@@ -2061,8 +2061,7 @@
             html += `<div class="tl-filter-bar" id="filter-${uid}">`;
             html += `<button class="tl-filter-btn active" onclick="filterTimeline('${uid}', 'all', this)">すべて</button>`;
             cats.forEach(cat => {
-                const catClass = 'tl-cat-' + cat.replace(/[\/]/g, '');
-                html += `<button class="tl-filter-btn ${catClass}" style="border:none;" onclick="filterTimeline('${uid}', '${cat}', this)">${cat}</button>`;
+                html += `<button class="tl-filter-btn" onclick="filterTimeline('${uid}', '${cat}', this)">${cat}</button>`;
             });
             html += '</div>';
 
