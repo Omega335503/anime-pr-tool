@@ -858,9 +858,8 @@
             <!-- 登録済みプロジェクト一覧 -->
             <div id="project-list"></div>
 
-            <!-- 共有されたプロジェクト -->
+            <!-- 共有プロジェクト（project-listの末尾に統合表示） -->
             <div id="shared-projects-section" style="display:none;">
-                <div class="shared-section-title">共有されたプロジェクト</div>
                 <div id="shared-project-list"></div>
             </div>
         </div>
@@ -4025,8 +4024,11 @@ ${fieldDefs}
                     } catch(e) { membersByProject[s.projectId] = []; }
                 }
 
-                section.style.display = "block";
-                list.innerHTML = sharedItems.map(s => {
+                // project-listの末尾に共有プロジェクトを追加
+                const projectList = document.getElementById("project-list");
+                // 既存の共有カードを削除
+                projectList.querySelectorAll('.project-card[data-shared="true"]').forEach(el => el.remove());
+                const sharedHtml = sharedItems.map(s => {
                     const p = s._projectData;
                     const id = "shared_" + s.ownerUid + "_" + s.projectId;
                     const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
@@ -4072,7 +4074,7 @@ ${fieldDefs}
                         </div>`;
                     }).join('');
 
-                    return `<div class="project-card">
+                    return `<div class="project-card" data-shared="true">
                         <div class="project-card-header">
                             <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name || s.projectId)}
                                 <span class="shared-badge ${roleClass}">${roleLabel}</span>
@@ -4086,6 +4088,10 @@ ${fieldDefs}
                         </div>
                     </div>`;
                 }).join("");
+                projectList.insertAdjacentHTML("beforeend", sharedHtml);
+                // 空メッセージを非表示にする
+                const emptyMsg = projectList.querySelector('.empty-state, .no-projects');
+                if (emptyMsg && sharedItems.length > 0) emptyMsg.style.display = 'none';
 
             } catch(err) {
                 console.error("[Share] Load shared projects error:", err);
