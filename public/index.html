@@ -3966,6 +3966,18 @@ ${fieldDefs}
                     return;
                 }
 
+                // 各プロジェクトの全メンバー情報を取得
+                const membersByProject = {};
+                for (const s of sharedItems) {
+                    try {
+                        const allShares = await db.collection("shares")
+                            .where("projectId", "==", s.projectId)
+                            .where("ownerUid", "==", s.ownerUid)
+                            .get();
+                        membersByProject[s.projectId] = allShares.docs.map(d => d.data());
+                    } catch(e) { membersByProject[s.projectId] = []; }
+                }
+
                 section.style.display = "block";
                 list.innerHTML = sharedItems.map(s => {
                     const p = s._projectData;
@@ -3978,6 +3990,24 @@ ${fieldDefs}
                     p._ownerUid = s.ownerUid;
                     p._shareProjectId = s.projectId;
                     _projectsCache[id] = p;
+
+                    // メンバー一覧HTML
+                    const members = membersByProject[s.projectId] || [];
+                    const memberHtml = `<div class="shared-members-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <span style="font-size:11px;color:#6366f1;font-weight:600;margin-right:4px;">👥 メンバー:</span>
+                        <span class="shared-member-chip" style="font-size:11px;background:#1a3a1a;color:#4ade80;padding:2px 8px;border-radius:10px;">
+                            ${escapeHtml(s.ownerEmail.split('@')[0])} <span style="color:#71717a;">オーナー</span>
+                        </span>
+                        ${members.map(m => {
+                            const rl = m.role === "editor" ? "編集者" : "閲覧者";
+                            const bg = m.role === "editor" ? "#1a2a4a" : "#2a2a2a";
+                            const color = m.role === "editor" ? "#60a5fa" : "#a1a1aa";
+                            const isMe = m.sharedWith === (firebaseAuth.currentUser?.email || "");
+                            return `<span class="shared-member-chip" style="font-size:11px;background:${bg};color:${color};padding:2px 8px;border-radius:10px;${isMe ? 'border:1px solid ' + color + ';' : ''}">
+                                ${escapeHtml(m.sharedWith.split('@')[0])} <span style="color:#71717a;">${rl}</span>${isMe ? ' <span style="color:#fbbf24;">★</span>' : ''}
+                            </span>`;
+                        }).join('')}
+                    </div>`;
 
                     // 自分のプロジェクトと同じタブ構造を生成
                     const structured = p.structured || {};
@@ -4015,6 +4045,7 @@ ${fieldDefs}
                             </div>
                         </div>
                         <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
+                        ${memberHtml}
                         <div class="project-detail" id="pdetail-${id}">
                             <div class="detail-tab-nav">${tabNav}</div>
                             ${tabContents}
