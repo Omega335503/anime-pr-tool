@@ -1,67 +1,25 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/generate.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxDuration": 60
-      }
-    },
-    {
-      "src": "api/csv_parse.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/content_generate.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxDuration": 60
-      }
-    },
-    {
-      "src": "api/fetch_gdoc.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxDuration": 30
-      }
-    },
-    {
-      "src": "api/extract_info.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxDuration": 60
-      }
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
+    { "src": "api/generate.py", "use": "@vercel/python", "config": { "maxDuration": 60 } },
+    { "src": "api/csv_parse.py", "use": "@vercel/python" },
+    { "src": "api/content_generate.py", "use": "@vercel/python", "config": { "maxDuration": 60 } },
+    { "src": "api/fetch_gdoc.py", "use": "@vercel/python", "config": { "maxDuration": 30 } },
+    { "src": "api/extract_info.py", "use": "@vercel/python", "config": { "maxDuration": 60 } },
+    { "src": "api/structure_doc.py", "use": "@vercel/python", "config": { "maxDuration": 60 } },
+    { "src": "api/extract_meta.py", "use": "@vercel/python", "config": { "maxDuration": 60 } },
+    { "src": "api/ai_fill.py", "use": "@vercel/python", "config": { "maxDuration": 60 } },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/generate",
-      "dest": "/api/generate.py"
-    },
-    {
-      "src": "/api/csv_parse",
-      "dest": "/api/csv_parse.py"
-    },
-    {
-      "src": "/api/content_generate",
-      "dest": "/api/content_generate.py"
-    },
-    {
-      "src": "/api/fetch_gdoc",
-      "dest": "/api/fetch_gdoc.py"
-    },
-    {
-      "src": "/api/extract_info",
-      "dest": "/api/extract_info.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
+    { "src": "/api/generate", "dest": "/api/generate.py" },
+    { "src": "/api/csv_parse", "dest": "/api/csv_parse.py" },
+    { "src": "/api/content_generate", "dest": "/api/content_generate.py" },
+    { "src": "/api/fetch_gdoc", "dest": "/api/fetch_gdoc.py" },
+    { "src": "/api/extract_info", "dest": "/api/extract_info.py" },
+    { "src": "/api/structure_doc", "dest": "/api/structure_doc.py" },
+    { "src": "/api/extract_meta", "dest": "/api/extract_meta.py" },
+    { "src": "/api/ai_fill", "dest": "/api/ai_fill.py" },
+    { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }

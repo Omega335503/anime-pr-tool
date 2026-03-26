@@ -4,7 +4,10 @@ import json
 import time
 import base64
 
-GOOGLE_CLIENT_ID = "105287262948-9qob3e7bv0aaeqk92ou40mmlqtnsp1u0.apps.googleusercontent.com"
+GOOGLE_CLIENT_IDS = [
+    "118724174260-73vi4shmf3tc4ipktqr8a9ef39118hk7.apps.googleusercontent.com",
+    "105287262948-9qob3e7bv0aaeqk92ou40mmlqtnsp1u0.apps.googleusercontent.com",
+]
 
 # 検証済みトークンキャッシュ {token_hash: {user, expires}}
 _token_cache = {}
@@ -47,7 +50,7 @@ def verify_google_token(token):
         return None
 
     # クライアントID確認
-    if payload.get("aud") != GOOGLE_CLIENT_ID:
+    if payload.get("aud") not in GOOGLE_CLIENT_IDS:
         return None
 
     # 発行者確認
@@ -104,4 +107,16 @@ def require_auth(request_obj):
     if not user:
         return {"error": "認証トークンが無効です。再ログインしてください。"}, 401
 
+    return None
+
+
+def require_auth_vercel(handler):
+    """BaseHTTPRequestHandler用の認証チェック"""
+    auth_header = handler.headers.get("Authorization", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return {"error": "認証が必要です"}
+    token = auth_header[7:]
+    user = verify_google_token(token)
+    if not user:
+        return {"error": "認証トークンが無効です"}
     return None

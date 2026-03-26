@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>アニメ広報ツール</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKasmGl4EY6BHNFJSXFBMUEMIcGab8yDc",
+            authDomain: "anime-pr-saas.firebaseapp.com",
+            projectId: "anime-pr-saas",
+            storageBucket: "anime-pr-saas.firebasestorage.app",
+            messagingSenderId: "118724174260",
+            appId: "1:118724174260:web:e9643f1772357d2da452e1",
+            measurementId: "G-6QQTQ3NWRR"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const firebaseAuth = firebase.auth();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -239,6 +256,13 @@
         }
         .detail-tab-btn:hover { color: #a1a1aa; }
         .detail-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+        .src-link-btn {
+            display: inline-block; margin-left: 4px; padding: 1px 5px;
+            background: #27272a; border-radius: 4px; color: #6366f1;
+            font-size: 10px; text-decoration: none; font-weight: 700;
+            vertical-align: middle; line-height: 1;
+        }
+        .src-link-btn:hover { background: #6366f1; color: #fff; }
         .detail-tab-content { display: none; }
         .detail-tab-content.active { display: block; }
         .detail-raw-content {
@@ -247,6 +271,41 @@
             font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all;
             color: #a1a1aa; max-height: 500px; overflow-y: auto;
         }
+        /* ガントチャート */
+        .gantt-wrapper { overflow-x: auto; overflow-y: auto; max-height: 600px; border: 1px solid #27272a; border-radius: 8px; }
+        .gantt-table { border-collapse: collapse; min-width: 2000px; }
+        .gantt-table th, .gantt-table td { border: 1px solid #27272a; padding: 2px 3px; font-size: 9px; white-space: nowrap; vertical-align: top; width: 70px; min-width: 70px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+        .gantt-table .gantt-cat { position: sticky; left: 0; z-index: 2; background: #18181b; width: 100px; min-width: 100px; max-width: 100px; font-weight: bold; font-size: 11px; }
+        .gantt-table .gantt-month { background: #1F4E79; color: #fff; text-align: center; font-weight: bold; font-size: 11px; }
+        .gantt-table .gantt-week { background: #09090b; color: #a1a1aa; text-align: center; font-size: 9px; }
+        .gantt-table .gantt-year { background: #18181b; color: #71717a; font-size: 10px; }
+        .gantt-table .gantt-event { background: #1e3a5f; color: #93c5fd; font-size: 9px; border-radius: 2px; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gantt-cat-プレスリリース { background: #3b1c1c !important; }
+        .gantt-cat-WEB\/HP, [class*="gantt-cat-WEB"] { background: #1c2e1c !important; }
+        .gantt-cat-イベント { background: #1c2635 !important; }
+        .gantt-cat-SNS更新 { background: #2e2618 !important; }
+        .gantt-cat-制作物 { background: #2a1c35 !important; }
+        .gantt-cat-アニメ制作 { background: #1c2e2e !important; }
+        .gantt-cat-MTG { background: #2e2e1c !important; }
+        .gantt-cat-その他 { background: #1e1e1e !important; }
+        .gantt-download { margin: 8px 0; display: inline-block; padding: 6px 14px; background: #1F4E79; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .gantt-download:hover { background: #2a6aaa; }
+        .gantt-layout { display: flex; gap: 0; }
+        .gantt-main { flex: 1; min-width: 0; }
+        .gantt-detail { width: 280px; min-width: 280px; background: #18181b; border-left: 2px solid #6366f1; padding: 12px; font-size: 12px; max-height: 600px; overflow-y: auto; display: none; }
+        .gantt-detail.active { display: block; }
+        .gantt-detail-date { color: #6366f1; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+        .gantt-detail-cat { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-bottom: 8px; background: #27272a; color: #a1a1aa; }
+        .gantt-detail-title { font-size: 14px; font-weight: bold; color: #e4e4e7; margin-bottom: 10px; }
+        .gantt-detail-items { list-style: none; padding: 0; margin: 0; }
+        .gantt-detail-items li { padding: 4px 0; border-bottom: 1px solid #27272a; color: #a1a1aa; }
+        .gantt-detail-items li:last-child { border-bottom: none; }
+        .gantt-detail-children { margin-left: 12px; color: #71717a; font-size: 11px; }
+        .gantt-detail-close { float: right; background: none; border: none; color: #71717a; cursor: pointer; font-size: 16px; }
+        .gantt-detail-close:hover { color: #e4e4e7; }
+        .gantt-table .gantt-event { cursor: pointer; }
+        .gantt-table .gantt-event:hover { background: #2a4a6f; }
+        .gantt-table .gantt-event.selected { outline: 2px solid #6366f1; }
         .detail-no-data { color: #52525b; font-size: 13px; font-style: italic; padding: 16px; text-align: center; }
 
         /* タイムラインツリー */
@@ -271,9 +330,10 @@
         .tl-body { display: none; padding: 0 16px 12px 16px; }
         .tl-entry.open .tl-body { display: block; }
         .tl-date-input {
-            background: #6366f1; color: #fff; padding: 2px 10px; border-radius: 4px;
+            background: #6366f1; color: #fff; padding: 2px 6px; border-radius: 4px;
             font-size: 12px; font-weight: 700; white-space: nowrap;
-            border: 1px solid transparent; width: 70px; text-align: center;
+            border: 1px solid transparent; width: 130px; text-align: center;
+            color-scheme: dark;
         }
         .tl-date-input:hover, .tl-date-input:focus { border-color: #818cf8; outline: none; background: #4f46e5; }
         .tl-date {
@@ -436,6 +496,100 @@
             border-radius: 6px; color: #a1a1aa; font-size: 12px; cursor: pointer;
         }
         .btn-logout:hover { background: #3f3f46; }
+
+        /* ===== 共有モーダル ===== */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal-box {
+            background: #18181b; border: 1px solid #27272a; border-radius: 16px;
+            padding: 32px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+        }
+        .modal-box h2 { font-size: 18px; color: #fff; margin-bottom: 16px; }
+        .modal-close {
+            float: right; background: none; border: none; color: #71717a;
+            font-size: 20px; cursor: pointer; padding: 0 4px;
+        }
+        .modal-close:hover { color: #e4e4e7; }
+        .share-form { display: flex; gap: 8px; margin-bottom: 16px; }
+        .share-form input {
+            flex: 1; padding: 10px 14px; background: #09090b; border: 1px solid #3f3f46;
+            border-radius: 8px; color: #fff; font-size: 14px; outline: none;
+        }
+        .share-form input:focus { border-color: #6366f1; }
+        .share-form select {
+            padding: 10px 12px; background: #09090b; border: 1px solid #3f3f46;
+            border-radius: 8px; color: #fff; font-size: 13px; cursor: pointer;
+        }
+        .share-btn {
+            padding: 10px 20px; background: #6366f1; color: #fff; border: none;
+            border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .share-btn:hover { background: #4f46e5; }
+        .share-btn:disabled { background: #3f3f46; cursor: not-allowed; }
+        .share-list { margin-top: 16px; }
+        .share-list-title { font-size: 13px; color: #71717a; margin-bottom: 8px; }
+        .share-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; background: #09090b; border: 1px solid #27272a;
+            border-radius: 8px; margin-bottom: 6px;
+        }
+        .share-item-info { display: flex; align-items: center; gap: 8px; }
+        .share-item-email { font-size: 13px; color: #e4e4e7; }
+        .share-item-role {
+            padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+        }
+        .share-role-editor { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .share-role-viewer { background: rgba(113,113,122,0.2); color: #a1a1aa; }
+        .share-item-remove {
+            background: none; border: 1px solid transparent; color: #52525b;
+            cursor: pointer; font-size: 13px; padding: 2px 8px; border-radius: 4px;
+        }
+        .share-item-remove:hover { color: #ef4444; border-color: #7f1d1d; background: rgba(127,29,29,0.2); }
+        .share-btn-icon {
+            padding: 4px 8px; background: #27272a; border: 1px solid #3f3f46; border-radius: 4px;
+            color: #a1a1aa; font-size: 12px; cursor: pointer;
+        }
+        .share-btn-icon:hover { background: #3f3f46; color: #e4e4e7; }
+
+        /* ===== 共有プロジェクトセクション ===== */
+        .shared-section-title {
+            font-size: 16px; font-weight: 700; color: #a1a1aa; margin: 24px 0 12px;
+            padding-bottom: 8px; border-bottom: 1px solid #27272a;
+        }
+        .shared-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; margin-left: 8px;
+        }
+        .shared-badge-owner { font-size: 11px; color: #71717a; margin-left: 4px; }
+
+        /* ===== プロフィールモーダル ===== */
+        .profile-header {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+            padding-bottom: 16px; border-bottom: 1px solid #27272a;
+        }
+        .profile-avatar {
+            width: 64px; height: 64px; border-radius: 50%; border: 2px solid #3f3f46;
+        }
+        .profile-info h3 { font-size: 18px; color: #fff; margin-bottom: 4px; }
+        .profile-info p { font-size: 13px; color: #71717a; }
+        .profile-section { margin-bottom: 20px; }
+        .profile-section-title {
+            font-size: 14px; font-weight: 700; color: #a1a1aa; margin-bottom: 8px;
+            padding-bottom: 6px; border-bottom: 1px solid #27272a;
+        }
+        .profile-project-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: #09090b; border: 1px solid #27272a;
+            border-radius: 8px; margin-bottom: 4px; font-size: 13px; color: #e4e4e7;
+        }
+        .user-name-link {
+            cursor: pointer; transition: color 0.2s;
+        }
+        .user-name-link:hover { color: #6366f1; }
     </style>
 </head>
 <body>
@@ -446,7 +600,7 @@
             <p class="subtitle">ログインして利用を開始</p>
             <div class="g-signin">
                 <div id="g_id_onload"
-                     data-client_id="105287262948-9qob3e7bv0aaeqk92ou40mmlqtnsp1u0.apps.googleusercontent.com"
+                     data-client_id="118724174260-73vi4shmf3tc4ipktqr8a9ef39118hk7.apps.googleusercontent.com"
                      data-callback="handleGoogleLogin"
                      data-auto_prompt="false">
                 </div>
@@ -467,9 +621,9 @@
     <div class="container" id="app-container" style="display:none;">
         <!-- ユーザーバー -->
         <div class="user-bar" id="user-bar">
-            <div class="user-info">
+            <div class="user-info" onclick="openProfileModal()" style="cursor:pointer;" title="プロフィールを表示">
                 <img class="user-avatar" id="user-avatar" src="" alt="">
-                <span id="user-name"></span>
+                <span id="user-name" class="user-name-link"></span>
             </div>
             <button class="btn-logout" onclick="handleLogout()">ログアウト</button>
         </div>
@@ -544,8 +698,14 @@
             <div class="input-section">
                 <div class="form-group project-selector">
                     <label>プロジェクトから自動入力</label>
-                    <select id="project-select" onchange="applyProject()">
+                    <select id="project-select" onchange="applyProject(); updateTaskSelect();">
                         <option value="">-- 手動入力 --</option>
+                    </select>
+                </div>
+                <div class="form-group" id="task-selector-group" style="display:none;">
+                    <label>宣伝タイムラインから施策を選択</label>
+                    <select id="task-select" onchange="applyTask()" style="width:100%;padding:10px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:13px;">
+                        <option value="">-- 施策を選択 --</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -557,27 +717,96 @@
                 </div>
             </div>
 
-            <div class="input-section" id="content-form-section">
-                <div id="content-form"></div>
-                <div class="form-group">
-                    <button class="btn-generate" id="btn-content-generate" onclick="generateContent()">コンテンツを生成</button>
+            <!-- ツイート詳細編集パネル -->
+            <div id="tweet-editor-panel" style="display:none;">
+                <div class="input-section" style="border-left:3px solid #6366f1;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="color:#e4e4e7;font-size:15px;margin:0;" id="tweet-editor-title">ツイート編集</h3>
+                        <span id="tweet-editor-status" style="padding:3px 10px;border-radius:12px;font-size:11px;background:#27272a;color:#a1a1aa;">下書き</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                        <div class="form-group" style="margin:0;">
+                            <label style="font-size:12px;">投稿日</label>
+                            <input type="date" id="tweet-post-date" onchange="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label style="font-size:12px;">投稿時間</label>
+                            <input type="time" id="tweet-post-time" value="12:00" onchange="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                        </div>
+                    </div>
+                    <!-- 施策タイプ別の動的フォーム -->
+                    <div id="tweet-task-fields" style="margin-bottom:8px;"></div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px;">その他メモ</label>
+                        <textarea id="tweet-memo" placeholder="補足事項があれば" oninput="autoSaveTweet()" style="width:100%;height:40px;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;resize:vertical;"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <label style="font-size:12px;">ツイート本文</label>
+                            <span id="tweet-char-count" style="font-size:11px;color:#a1a1aa;">0 / 280</span>
+                        </div>
+                        <textarea id="tweet-body" placeholder="ツイート本文をここに入力 or AIで生成" style="width:100%;height:120px;padding:10px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:14px;line-height:1.6;resize:vertical;" oninput="updateTweetCharCount(); autoSaveTweet()"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px;">ハッシュタグ</label>
+                        <input type="text" id="tweet-hashtags" placeholder="#ダークサモナーとデキている" oninput="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px;">添付画像</label>
+                        <div id="tweet-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;"></div>
+                        <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#27272a;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#a1a1aa;font-size:12px;">
+                            📷 画像を追加
+                            <input type="file" id="tweet-image-input" accept="image/*" multiple style="display:none;" onchange="handleTweetImages(this)">
+                        </label>
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px;">URL</label>
+                        <input type="text" id="tweet-url" placeholder="https://..." oninput="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px;">ステータス</label>
+                        <select id="tweet-status-select" onchange="updateTweetStatusBadge(); autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                            <option value="draft">下書き</option>
+                            <option value="pending">承認待ち</option>
+                            <option value="approved">承認済み</option>
+                            <option value="posted">投稿済み</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <button onclick="aiGenerateTweet()" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">✨ AIでツイート生成</button>
+                        <button onclick="saveTweetDraft(true)" style="padding:10px 20px;background:#22c55e;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">保存</button>
+                    </div>
+                    <div id="tweet-ai-loading" style="display:none;text-align:center;padding:12px;">
+                        <div class="spinner"></div>
+                        <p style="color:#a1a1aa;font-size:12px;margin-top:8px;">AIがツイートを生成中...</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="error-msg" id="content-error-msg"></div>
-
-            <div class="loading" id="content-loading">
-                <div class="spinner"></div>
-                <p class="loading-text" id="content-loading-text">Claude APIに接続中...</p>
-            </div>
-
-            <div class="result-section" id="content-result">
-                <div class="actions-bar">
-                    <button class="btn-action" id="btn-content-copy" onclick="copyContent()">コピー</button>
-                    <button class="btn-action" onclick="generateContent()">再生成</button>
+            <!-- 従来のフォーム（プレスリリース用） -->
+            <div id="legacy-content-form">
+                <div class="input-section" id="content-form-section">
+                    <div id="content-form"></div>
+                    <div class="form-group">
+                        <button class="btn-generate" id="btn-content-generate" onclick="generateContent()">コンテンツを生成</button>
+                    </div>
                 </div>
-                <div class="content-output" id="content-output"></div>
-                <div class="char-counter" id="char-counter"></div>
+
+                <div class="error-msg" id="content-error-msg"></div>
+
+                <div class="loading" id="content-loading">
+                    <div class="spinner"></div>
+                    <p class="loading-text" id="content-loading-text">AIに接続中...</p>
+                </div>
+
+                <div class="result-section" id="content-result">
+                    <div class="actions-bar">
+                        <button class="btn-action" id="btn-content-copy" onclick="copyContent()">コピー</button>
+                        <button class="btn-action" onclick="generateContent()">再生成</button>
+                    </div>
+                    <div class="content-output" id="content-output"></div>
+                    <div class="char-counter" id="char-counter"></div>
+                </div>
             </div>
         </div>
         <!-- タブ3: プロジェクト管理 -->
@@ -640,13 +869,269 @@
 
             <!-- 登録済みプロジェクト一覧 -->
             <div id="project-list"></div>
+
+            <!-- 共有されたプロジェクト -->
+            <div id="shared-projects-section" style="display:none;">
+                <div class="shared-section-title">共有されたプロジェクト</div>
+                <div id="shared-project-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 共有モーダル -->
+    <div class="modal-overlay hidden" id="share-modal">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeShareModal()">&times;</button>
+            <h2 id="share-modal-title">プロジェクトを共有</h2>
+            <div class="share-form">
+                <input type="email" id="share-email" placeholder="メールアドレスを入力">
+                <select id="share-role">
+                    <option value="editor">編集者</option>
+                    <option value="viewer">閲覧者</option>
+                </select>
+                <button class="share-btn" onclick="sendShareInvite()">招待</button>
+            </div>
+            <div class="share-list">
+                <div class="share-list-title">共有メンバー</div>
+                <div id="share-members-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- プロフィールモーダル -->
+    <div class="modal-overlay hidden" id="profile-modal">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+            <div class="profile-header">
+                <img class="profile-avatar" id="profile-avatar" src="" alt="">
+                <div class="profile-info">
+                    <h3 id="profile-name"></h3>
+                    <p id="profile-email"></p>
+                </div>
+            </div>
+            <div class="profile-section">
+                <div class="profile-section-title">自分のプロジェクト</div>
+                <div id="profile-my-projects"></div>
+            </div>
+            <div class="profile-section">
+                <div class="profile-section-title">共有されたプロジェクト</div>
+                <div id="profile-shared-projects"></div>
+            </div>
         </div>
     </div>
 
     <script>
         // ===== 認証管理 =====
-        const GOOGLE_CLIENT_ID = "105287262948-9qob3e7bv0aaeqk92ou40mmlqtnsp1u0.apps.googleusercontent.com";
+        const GOOGLE_CLIENT_ID = "118724174260-73vi4shmf3tc4ipktqr8a9ef39118hk7.apps.googleusercontent.com";
         let authToken = null;
+        let googleAccessToken = null;
+
+        // Google Drive/Docs/Sheets書き込み用アクセストークン取得
+        let tokenClient = null;
+        function initTokenClient() {
+            if (typeof google === 'undefined' || !google.accounts?.oauth2) return;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/documents',
+                callback: (resp) => {
+                    if (resp.access_token) {
+                        googleAccessToken = resp.access_token;
+                        console.log("[Google] Access token obtained");
+                    }
+                },
+            });
+        }
+        // GIS読み込み後に初期化
+        setTimeout(initTokenClient, 2000);
+
+        // アクセストークンを取得（なければOAuth同意画面を表示）
+        function ensureAccessToken() {
+            return new Promise((resolve, reject) => {
+                if (googleAccessToken) { resolve(googleAccessToken); return; }
+                if (!tokenClient) { initTokenClient(); }
+                if (!tokenClient) { reject("OAuth not ready"); return; }
+                const origCallback = tokenClient.callback;
+                tokenClient.callback = (resp) => {
+                    if (resp.access_token) {
+                        googleAccessToken = resp.access_token;
+                        resolve(resp.access_token);
+                    } else { reject("No token"); }
+                };
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            });
+        }
+
+        // Google Sheets新規作成
+        async function createGoogleSheet(title, sheetData) {
+            const token = await ensureAccessToken();
+            // 1. スプレッドシート作成
+            const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ properties: { title } })
+            });
+            const sheet = await createRes.json();
+            const spreadsheetId = sheet.spreadsheetId;
+            // 2. データ書き込み
+            if (sheetData && sheetData.length > 0) {
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1?valueInputOption=RAW`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ range: 'A1', majorDimension: 'ROWS', values: sheetData })
+                });
+            }
+            return sheet.spreadsheetUrl;
+        }
+
+        // Google Docs新規作成
+        async function createGoogleDoc(title, bodyText) {
+            const token = await ensureAccessToken();
+            // 1. ドキュメント作成
+            const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            const doc = await createRes.json();
+            const docId = doc.documentId;
+            // 2. テキスト挿入
+            if (bodyText) {
+                await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        requests: [{ insertText: { location: { index: 1 }, text: bodyText } }]
+                    })
+                });
+            }
+            return `https://docs.google.com/document/d/${docId}/edit`;
+        }
+
+        // プロジェクトデータから整形済みGoogle Docs/Sheetsを作成
+        async function exportToGoogle(projectId) {
+            const p = getProjects()[projectId];
+            if (!p) return;
+            const strc = p.structured || {};
+            const name = p.name || 'アニメプロジェクト';
+            const urls = {};
+
+            try {
+                // 進捗表示
+                const btn = event?.target;
+                if (btn) { btn.disabled = true; btn.textContent = '作成中...'; }
+
+                // 1. 宣伝タイムライン → Google Docs
+                if (strc.timeline && strc.timeline.length > 0) {
+                    let text = `【${name}】宣伝タイムライン\n\n`;
+                    strc.timeline.forEach(entry => {
+                        text += `━━━━━━━━━━━━━━━━━━\n`;
+                        text += `${entry.date || ''}　[${entry.category || ''}]　${entry.title || ''}\n`;
+                        if (entry.items) {
+                            entry.items.forEach(item => {
+                                const itemText = typeof item === 'string' ? item : item.text || '';
+                                text += `  ・${itemText}\n`;
+                                if (item.children) {
+                                    item.children.forEach(c => {
+                                        const cText = typeof c === 'string' ? c : c.text || '';
+                                        text += `    └ ${cText}\n`;
+                                    });
+                                }
+                            });
+                        }
+                        text += '\n';
+                    });
+                    urls.timeline = await createGoogleDoc(`${name}_宣伝タイムライン`, text);
+                }
+
+                // 2. テキストマスター → Google Sheets
+                if (strc.text_master) {
+                    const tm = strc.text_master;
+                    const rows = [];
+                    if (tm.headers) rows.push(tm.headers);
+                    (tm.sections || []).forEach(sec => {
+                        rows.push([`【${sec.title}】`]);
+                        (sec.rows || []).forEach(row => rows.push(row));
+                        rows.push([]);
+                    });
+                    urls.text_master = await createGoogleSheet(`${name}_テキストマスター`, rows);
+                }
+
+                // 3. 宣伝予算表 → Google Sheets
+                if (strc.budget) {
+                    const bd = strc.budget;
+                    const rows = [];
+                    if (bd.headers) rows.push(bd.headers);
+                    (bd.sections || []).forEach(sec => {
+                        rows.push([`【${sec.title}】`]);
+                        (sec.rows || []).forEach(row => rows.push(row));
+                        rows.push([]);
+                    });
+                    urls.budget = await createGoogleSheet(`${name}_宣伝予算表`, rows);
+                }
+
+                // 4. ガントチャート → Google Sheets
+                if (strc.timeline && strc.timeline.length > 0) {
+                    const ganttRows = buildGanttSheetData(strc.timeline, name);
+                    urls.gantt = await createGoogleSheet(`${name}_ガントチャート`, ganttRows);
+                }
+
+                // URLをプロジェクトに保存
+                p.exported_urls = urls;
+                saveProject(projectId, p);
+                renderProjectList();
+
+                if (btn) { btn.disabled = false; btn.textContent = '↗ 整形版を作成'; }
+                alert('Google Docs/Sheetsを作成しました！');
+            } catch (err) {
+                console.error('[Export] Error:', err);
+                alert('作成に失敗しました: ' + err);
+                if (event?.target) { event.target.disabled = false; event.target.textContent = '↗ 整形版を作成'; }
+            }
+        }
+
+        // ガントチャート用シートデータ生成
+        function buildGanttSheetData(timeline, title) {
+            const categories = ['プレスリリース', 'X更新', 'SNS更新', '制作物', 'WEB/HP', 'イベント', 'アニメ制作', 'MTG', 'その他'];
+            const entries = timeline || [];
+            // 月の範囲を特定
+            const months = new Set();
+            entries.forEach(e => {
+                if (e.date) {
+                    const m = parseInt(e.date.split('/')[0]) || parseInt(e.date.split('-')[1]);
+                    if (m) months.add(m);
+                }
+            });
+            const sortedMonths = [...months].sort((a, b) => a - b);
+            if (sortedMonths.length === 0) return [[title]];
+
+            // ヘッダー行
+            const header1 = ['実施項目'];
+            const header2 = [''];
+            sortedMonths.forEach(m => {
+                header1.push(`${m}月`, '', '', '');
+                header2.push('1W', '2W', '3W', '4W');
+            });
+            const rows = [header1, header2];
+
+            // カテゴリごとの行
+            categories.forEach(cat => {
+                const catEntries = entries.filter(e => e.category === cat);
+                if (catEntries.length === 0) return;
+                const row = [cat];
+                sortedMonths.forEach(m => {
+                    for (let w = 1; w <= 4; w++) {
+                        const matching = catEntries.filter(e => {
+                            const eMonth = parseInt(e.date?.split('/')[0]) || parseInt(e.date?.split('-')[1]);
+                            const eDay = parseInt(e.date?.split('/')[1]) || parseInt(e.date?.split('-')[2]);
+                            return eMonth === m && Math.ceil((eDay || 1) / 7) === w;
+                        });
+                        row.push(matching.map(e => e.title).join('\n'));
+                    }
+                });
+                rows.push(row);
+            });
+            return rows;
+        }
 
         function parseJwt(token) {
             try {
@@ -671,7 +1156,15 @@
                 exp: payload.exp,
             };
             localStorage.setItem("anime_pr_user", JSON.stringify(user));
-            showApp(user);
+            // Firebase認証（Google IDトークンでサインイン）
+            const credential = firebase.auth.GoogleAuthProvider.credential(response.credential);
+            firebaseAuth.signInWithCredential(credential).then(() => {
+                console.log("[Firebase] Signed in as", firebaseAuth.currentUser.uid);
+                showApp(user);
+            }).catch(err => {
+                console.error("[Firebase] Auth error:", err);
+                showApp(user); // フォールバック：Firebase認証失敗でもアプリは使える
+            });
         }
 
         function showApp(user) {
@@ -680,14 +1173,29 @@
             document.getElementById("user-name").textContent = user.name;
             document.getElementById("user-avatar").src = user.picture || "";
             authToken = user.token;
+            // Firestoreからプロジェクト読み込み
+            if (firebaseAuth.currentUser) {
+                loadProjectsFromFirestore();
+                saveUserProfile();
+            } else {
+                // Firebase認証完了を待つ
+                firebaseAuth.onAuthStateChanged(u => {
+                    if (u) {
+                        loadProjectsFromFirestore();
+                        saveUserProfile();
+                    }
+                });
+            }
         }
 
         function handleLogout() {
             localStorage.removeItem("anime_pr_user");
             authToken = null;
+            _projectsCache = {};
+            _sharedProjectsCache = [];
+            firebaseAuth.signOut();
             document.getElementById("login-overlay").classList.remove("hidden");
             document.getElementById("app-container").style.display = "none";
-            // Google Sign-In をリセット
             google.accounts.id.disableAutoSelect();
         }
 
@@ -698,12 +1206,32 @@
                     // トークンの有効期限チェック
                     if (saved.exp && saved.exp * 1000 < Date.now()) {
                         localStorage.removeItem("anime_pr_user");
+                        console.log("[Auth] Token expired, clearing");
                         return;
                     }
-                    showApp(saved);
+                    console.log("[Auth] Restoring session for", saved.email);
+                    authToken = saved.token;
+                    // Firebase再認証
+                    const credential = firebase.auth.GoogleAuthProvider.credential(saved.token);
+                    firebaseAuth.signInWithCredential(credential).then(() => {
+                        console.log("[Firebase] Re-authenticated as", firebaseAuth.currentUser.uid);
+                        showApp(saved);
+                    }).catch(err => {
+                        console.warn("[Firebase] Re-auth failed, trying onAuthStateChanged:", err.message);
+                        // Firebase側のセッション復元を待つ
+                        showApp(saved);
+                    });
                 }
-            } catch { /* 未ログイン */ }
+            } catch(e) { console.error("[Auth] checkAuth error:", e); }
         }
+
+        // Firebase認証状態の変化を監視（セッション復元）
+        firebaseAuth.onAuthStateChanged(user => {
+            console.log("[Firebase] onAuthStateChanged:", user ? user.uid : "null");
+            if (user && Object.keys(_projectsCache).length === 0) {
+                loadProjectsFromFirestore();
+            }
+        });
 
         // APIリクエストにトークンを付与するヘルパー
         function authHeaders(extra = {}) {
@@ -767,6 +1295,14 @@
         function switchContentType(type) {
             currentContentType = type;
             document.querySelectorAll(".type-btn").forEach(b => b.classList.toggle("active", b.dataset.type === type));
+            // ツイートは新エディター、プレスリリースは従来フォーム
+            if (type === "tweet" && document.getElementById("task-select").value) {
+                document.getElementById("tweet-editor-panel").style.display = "";
+                document.getElementById("legacy-content-form").style.display = "none";
+            } else {
+                document.getElementById("tweet-editor-panel").style.display = "none";
+                document.getElementById("legacy-content-form").style.display = "";
+            }
             renderContentForm(type);
         }
 
@@ -897,14 +1433,174 @@
         // ===== プロジェクト管理 =====
         let pendingExtract = null; // 抽出結果の一時保存
 
+        // Firestoreキャッシュ（UIの即時描画用）
+        let _projectsCache = {};
+        let _firestoreReady = false;
+
         function getProjects() {
-            try {
-                return JSON.parse(localStorage.getItem("anime_projects") || "{}");
-            } catch { return {}; }
+            if (Object.keys(_projectsCache).length === 0) {
+                try {
+                    const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
+                    if (Object.keys(local).length > 0) {
+                        _projectsCache = local;
+                    }
+                } catch(e) {}
+            }
+            return _projectsCache;
         }
 
         function saveProjects(projects) {
-            localStorage.setItem("anime_projects", JSON.stringify(projects));
+            _projectsCache = projects;
+            // localStorageにバックアップ
+            try { localStorage.setItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon"), JSON.stringify(projects)); } catch(e) {}
+            // Firestoreに非同期保存
+            const uid = firebaseAuth.currentUser?.uid;
+            if (uid) {
+                Object.entries(projects).forEach(([id, data]) => {
+                    db.collection("users").doc(uid).collection("projects").doc(id).set(data)
+                        .then(() => console.log("[Firestore] saveProjects OK:", id))
+                        .catch(err => console.error("[Firestore] save error:", err));
+                });
+            } else {
+                console.warn("[saveProjects] No uid, localStorage only");
+            }
+        }
+
+        // Firestoreはネスト配列を許可しないので、structuredをJSON文字列化して保存
+        function prepareForFirestore(obj) {
+            if (!obj) return obj;
+            const clone = {...obj};
+            // structured内のtimelineはネスト配列を含むのでJSON文字列化
+            if (clone.structured) {
+                clone._structured_json = JSON.stringify(clone.structured);
+                delete clone.structured;
+            }
+            // extractedも念のため
+            if (clone.extracted) {
+                clone._extracted_json = JSON.stringify(clone.extracted);
+                delete clone.extracted;
+            }
+            // tweetDraftsも
+            if (clone.tweetDrafts) {
+                clone._tweetDrafts_json = JSON.stringify(clone.tweetDrafts);
+                delete clone.tweetDrafts;
+            }
+            return clone;
+        }
+
+        function restoreFromFirestore(obj) {
+            if (!obj) return obj;
+            const clone = {...obj};
+            if (clone._structured_json) {
+                try { clone.structured = JSON.parse(clone._structured_json); } catch(e) {}
+                delete clone._structured_json;
+            }
+            if (clone._extracted_json) {
+                try { clone.extracted = JSON.parse(clone._extracted_json); } catch(e) {}
+                delete clone._extracted_json;
+            }
+            if (clone._tweetDrafts_json) {
+                try { clone.tweetDrafts = JSON.parse(clone._tweetDrafts_json); } catch(e) {}
+                delete clone._tweetDrafts_json;
+            }
+            return clone;
+        }
+
+        // 単一プロジェクト保存（効率的）
+        function saveProject(id, data) {
+            _projectsCache[id] = data;
+            // localStorageにもバックアップ保存
+            try {
+                const all = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
+                const lite = {...data};
+                delete lite.documents;
+                all[id] = lite;
+                const jsonStr = JSON.stringify(all);
+                console.log(`[localStorage] Saving ${id}, size: ${(jsonStr.length/1024).toFixed(1)}KB`);
+                localStorage.setItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon"), jsonStr);
+                console.log("[localStorage] Save OK");
+            } catch(e) { console.error("[localStorage] backup save failed:", e); }
+            const uid = firebaseAuth.currentUser?.uid;
+            if (uid) {
+                console.log("[Firestore] Saving project:", id);
+                const mainData = {...data};
+                delete mainData.documents;
+                const firestoreData = prepareForFirestore(mainData);
+                db.collection("users").doc(uid).collection("projects").doc(id).set(firestoreData)
+                    .then(() => {
+                        console.log("[Firestore] Saved OK:", id);
+                        const docs = data.documents;
+                        if (docs) {
+                            db.collection("users").doc(uid).collection("projects").doc(id)
+                                .collection("raw_docs").doc("data").set(docs)
+                                .then(() => console.log("[Firestore] Raw docs saved"))
+                                .catch(e => console.warn("[Firestore] Raw docs save failed:", e));
+                        }
+                    })
+                    .catch(err => console.error("[Firestore] save error:", err));
+            } else {
+                console.warn("[Firestore] No uid, saved to localStorage only");
+            }
+        }
+
+        // 単一プロジェクト削除
+        function deleteProject(id) {
+            delete _projectsCache[id];
+            const uid = firebaseAuth.currentUser?.uid;
+            if (uid) {
+                db.collection("users").doc(uid).collection("projects").doc(id).delete()
+                    .catch(err => console.error("[Firestore] delete error:", err));
+            }
+        }
+
+        // Firestoreからプロジェクトを読み込み
+        async function loadProjectsFromFirestore() {
+            const uid = firebaseAuth.currentUser?.uid;
+            console.log("[Firestore] loadProjects called, uid:", uid);
+
+            // まずlocalStorageから即時読み込み（高速表示）
+            try {
+                const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
+                if (Object.keys(local).length > 0 && Object.keys(_projectsCache).length === 0) {
+                    _projectsCache = local;
+                    console.log(`[localStorage] Loaded ${Object.keys(local).length} projects (fast)`);
+                    renderProjectList();
+                }
+            } catch(e) {}
+
+            if (!uid) {
+                console.warn("[Firestore] No uid, using localStorage only");
+                return;
+            }
+
+            try {
+                const snapshot = await db.collection("users").doc(uid).collection("projects").get();
+                const projects = {};
+                snapshot.forEach(doc => { projects[doc.id] = restoreFromFirestore(doc.data()); });
+                console.log(`[Firestore] Loaded ${Object.keys(projects).length} projects from server`);
+
+                if (Object.keys(projects).length > 0) {
+                    _projectsCache = projects;
+                    // localStorageにもバックアップ
+                    localStorage.setItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon"), JSON.stringify(projects));
+                } else {
+                    // Firestoreが空ならlocalStorageから移行
+                    const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
+                    if (Object.keys(local).length > 0) {
+                        console.log("[Firestore] Migrating from localStorage...");
+                        for (const [id, data] of Object.entries(local)) {
+                            const fsData = prepareForFirestore(data);
+                            await db.collection("users").doc(uid).collection("projects").doc(id).set(fsData);
+                            _projectsCache[id] = data;
+                        }
+                        console.log(`[Firestore] Migrated ${Object.keys(local).length} projects`);
+                    }
+                }
+                _firestoreReady = true;
+                renderProjectList();
+            } catch (err) {
+                console.error("[Firestore] Load error:", err, "- using localStorage fallback");
+            }
         }
 
         function renderProjectList() {
@@ -922,20 +1618,34 @@
                     const docs = p.documents || {};
                     const tags = [e.hashtags, e.official_url ? "公式サイトあり" : ""].filter(Boolean);
 
-                    // 3資料タブ（structured優先、なければ元資料）
+                    // 5タブ（3資料 + ガントチャート + ツイートカレンダー）
                     const docTabs = [
                         { key: "timeline", label: "宣伝タイムライン" },
                         { key: "text_master", label: "テキストマスター" },
                         { key: "budget", label: "宣伝予算表" },
+                        { key: "gantt", label: "ガントチャート" },
+                        { key: "tweet_calendar", label: "発信カレンダー" },
                     ];
-                    const tabNav = docTabs.map((t, i) =>
-                        `<button class="detail-tab-btn ${i === 0 ? 'active' : ''}" onclick="switchDetailTab('${id}', '${t.key}', this)">${t.label}</button>`
-                    ).join('');
+                    const expUrls = p.exported_urls || {};
+                    const tabNav = docTabs.map((t, i) => {
+                        const expUrl = expUrls[t.key];
+                        const linkBtn = expUrl ? ` <a href="${escapeHtml(expUrl)}" target="_blank" rel="noopener" class="src-link-btn" title="整形版を開く" onclick="event.stopPropagation()">↗</a>` : '';
+                        return `<button class="detail-tab-btn ${i === 0 ? 'active' : ''}" onclick="switchDetailTab('${id}', '${t.key}', this)">${t.label}${linkBtn}</button>`;
+                    }).join('');
                     const tabContents = docTabs.map((t, i) => {
-                        // 構造化済みデータを優先、なければ元テキスト
+                        if (t.key === 'gantt') {
+                            return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-gantt">
+                                ${renderGanttChart(strc.timeline, p.name)}
+                            </div>`;
+                        }
+                        if (t.key === 'tweet_calendar') {
+                            return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-tweet_calendar">
+                                ${renderTweetCalendar(id, p)}
+                            </div>`;
+                        }
                         const data = strc[t.key] || (docs[t.key] && docs[t.key].content ? docs[t.key].content : null);
-                        return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-${t.key}">
-                            ${renderStructuredContent(t.key, data, false)}
+                        return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-${t.key}" data-project-id="${id}" data-doc-type="${t.key}">
+                            ${renderStructuredContent(t.key, data, true, id)}
                         </div>`;
                     }).join('');
 
@@ -943,8 +1653,10 @@
                         <div class="project-card-header">
                             <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name)}</div>
                             <div class="project-card-actions">
-                                <button onclick="reExtractProject('${id}')">再抽出</button>
-                                <button class="delete" onclick="deleteProject('${id}')">削除</button>
+                                <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
+                                ${p.exported_urls ? '' : `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;">↗ 整形版を作成</button>`}
+                                <button onclick="showReExtractDialog('${id}')">再抽出</button>
+                                <button class="delete" onclick="removeProjectUI('${id}')">削除</button>
                             </div>
                         </div>
                         <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
@@ -959,6 +1671,8 @@
 
             // コンテンツ生成タブのプロジェクト選択を更新
             updateProjectSelect();
+            // 共有プロジェクトも読み込み
+            loadSharedProjects();
         }
 
         function escapeHtml(str) {
@@ -1078,10 +1792,11 @@
                     setProgress(pct, `${label} 完了 (${completedCount}/${totalJobs})`);
                 }
 
+                const extraInstructions = window._reextractInstructions || '';
                 const structurePromises = docKeys.map(key =>
                     fetch("/api/structure_doc", {
                         method: "POST", headers: authHeaders(),
-                        body: JSON.stringify({ doc_type: key, content: documents[key].content }),
+                        body: JSON.stringify({ doc_type: key, content: documents[key].content, instructions: extraInstructions }),
                     }).then(r => r.json().then(d => {
                         onJobComplete(docLabels[key]);
                         return { key, ok: r.ok, data: d };
@@ -1170,29 +1885,36 @@
 
         // ===== 構造化データのレンダリング =====
 
-        function renderStructuredContent(docType, data, editable = true) {
+        // 現在編集中のプロジェクトID（保存済みプロジェクト編集用）
+        let _editingProjectId = null;
+
+        function getEditTarget() {
+            // pendingExtract優先、なければ保存済みプロジェクト
+            if (pendingExtract) return pendingExtract;
+            if (_editingProjectId) {
+                const projects = getProjects();
+                return projects[_editingProjectId];
+            }
+            return null;
+        }
+
+        function saveEditTarget() {
+            if (_editingProjectId && !pendingExtract) {
+                const projects = getProjects();
+                saveProjects(projects);
+            }
+        }
+
+        function renderStructuredContent(docType, data, editable = true, projectId = null) {
+            if (projectId) _editingProjectId = projectId;
             if (!data) return '<div class="detail-no-data">この資料は登録されていません</div>';
-
-            if (typeof data === 'string') {
-                return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
-            }
-
-            if (docType === 'timeline') return renderTimeline(data, editable);
-            if (docType === 'text_master' || docType === 'budget') {
-                console.log("[DEBUG] renderTable", docType, "release_columns=", data.release_columns, "headers=", data.headers);
-                if (data.sections) {
-                    for (const s of data.sections) {
-                        for (const r of (s.rows || []).slice(0, 2)) {
-                            console.log("[DEBUG] row:", r);
-                        }
-                    }
-                }
-                return renderTable(data, editable);
-            }
+            if (typeof data === 'string') return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
+            if (docType === 'timeline') return renderTimeline(data, editable, projectId);
+            if (docType === 'text_master' || docType === 'budget') return renderTable(data, editable, projectId);
             return '<div class="detail-no-data">未対応の形式です</div>';
         }
 
-        const TL_CATEGORIES = ["MTG","プレスリリース","X更新","PV/映像","Web/HP","イベント","制作進行","メディア","コラボ/グッズ","その他"];
+        const TL_CATEGORIES = ["MTG","プレスリリース","SNS更新","制作物","WEB/HP","イベント","アニメ制作","メディア","コラボ/グッズ","その他"];
 
         function renderTimeline(entries, editable) {
             if (!Array.isArray(entries)) return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(entries, null, 2))}</div>`;
@@ -1221,15 +1943,18 @@
                 html += `<div class="tl-date-row" onclick="toggleTlAccordion(this)">`;
                 html += '<span class="tl-expand-icon">▶</span>';
                 if (editable) {
-                    html += `<input class="tl-date-input" value="${escapeHtml(entry.date || '日付未定')}" data-ei="${ei}" data-field="date" onchange="onTlEdit(this)" onclick="event.stopPropagation()">`;
+                    const dateVal = toDateInputVal(entry.date);
+                    html += dateVal
+                        ? `<input type="date" class="tl-date-input" value="${dateVal}" data-ei="${ei}" data-field="date" onchange="onTlEdit(this)" onclick="event.stopPropagation()">`
+                        : `<input class="tl-date-input" value="日付未定" data-ei="${ei}" data-field="date" onchange="onTlEdit(this)" onclick="event.stopPropagation()" onfocus="this.type='date';this.value=''">`;
                     html += `<select class="tl-cat-select" data-ei="${ei}" onchange="onTlCatChange(this)" onclick="event.stopPropagation()" style="background:#18181b;border:1px solid #3f3f46;border-radius:10px;color:#a1a1aa;font-size:10px;padding:2px 6px;outline:none;">`;
                     TL_CATEGORIES.forEach(c => { html += `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`; });
                     html += '</select>';
                     html += `<span style="color:#fff;font-weight:600;font-size:13px;flex:1;">${escapeHtml(entry.title || '')}</span>`;
                     html += `<span style="color:#52525b;font-size:11px;">${summary}</span>`;
-                    html += `<button class="tl-delete-btn" onclick="event.stopPropagation();removeTlEntry(${ei})" title="削除">✕</button>`;
+                    html += `<button class="tl-delete-btn" onclick="event.stopPropagation();removeTlEntry(${ei},this)" title="削除">✕</button>`;
                 } else {
-                    html += `<span class="tl-date">${escapeHtml(entry.date || '日付未定')}</span>`;
+                    html += `<span class="tl-date">${escapeHtml(formatDateDisplay(entry.date))}</span>`;
                     html += `<span class="tl-cat-badge ${catClass}">${escapeHtml(cat)}</span>`;
                     html += `<span style="color:#fff;font-weight:600;font-size:13px;flex:1;">${escapeHtml(entry.title || '')}</span>`;
                     html += `<span style="color:#52525b;font-size:11px;">${summary}</span>`;
@@ -1247,7 +1972,7 @@
                         html += '<div class="tl-item-label">';
                         if (editable) {
                             html += `<input value="${escapeHtml(item.label || '')}" data-ei="${ei}" data-ii="${ii}" data-field="label" onchange="onTlEdit(this)">`;
-                            html += `<button class="tl-delete-btn tl-delete-sm" onclick="removeTlItem(${ei},${ii})" title="削除">✕</button>`;
+                            html += `<button class="tl-delete-btn tl-delete-sm" onclick="removeTlItem(${ei},${ii},this)" title="削除">✕</button>`;
                         } else {
                             html += `<span>${escapeHtml(item.label || '')}</span>`;
                         }
@@ -1258,7 +1983,7 @@
                                 html += '<div class="tl-child">';
                                 if (editable) {
                                     html += `<input value="${escapeHtml(child || '')}" data-ei="${ei}" data-ii="${ii}" data-ci="${ci}" data-field="child" onchange="onTlEdit(this)">`;
-                                    html += `<button class="tl-delete-btn tl-delete-sm" onclick="removeTlChild(${ei},${ii},${ci})" title="削除">✕</button>`;
+                                    html += `<button class="tl-delete-btn tl-delete-sm" onclick="removeTlChild(${ei},${ii},${ci},this)" title="削除">✕</button>`;
                                 } else {
                                     html += `<span>${escapeHtml(child || '')}</span>`;
                                 }
@@ -1267,21 +1992,21 @@
                             html += '</div>';
                         }
                         if (editable) {
-                            html += `<button onclick="addTlChild(${ei},${ii})" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;margin-left:28px;">＋ 小項目を追加</button>`;
+                            html += `<button onclick="addTlChild(${ei},${ii},this)" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;margin-left:28px;">＋ 小項目を追加</button>`;
                         }
                         html += '</div>';
                     });
                     html += '</div>';
                 }
                 if (editable) {
-                    html += `<button onclick="addTlItem(${ei})" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;margin-top:4px;">＋ 項目を追加</button>`;
+                    html += `<button onclick="addTlItem(${ei},this)" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;margin-top:4px;">＋ 項目を追加</button>`;
                 }
                 html += '</div>'; // tl-body
                 html += '</div>'; // tl-entry
             });
             html += '</div>';
             if (editable) {
-                html += `<button onclick="addTlEntry()" style="width:100%;padding:10px;background:#18181b;border:1px dashed #3f3f46;border-radius:8px;color:#6366f1;cursor:pointer;font-size:13px;font-weight:600;margin-top:8px;">＋ 新しいエントリを追加</button>`;
+                html += `<button onclick="addTlEntry(this)" style="width:100%;padding:10px;background:#18181b;border:1px dashed #3f3f46;border-radius:8px;color:#6366f1;cursor:pointer;font-size:13px;font-weight:600;margin-top:8px;">＋ 新しいエントリを追加</button>`;
             }
             return html;
         }
@@ -1300,40 +2025,73 @@
             });
         }
 
-        // タイムライン追加・削除
-        function addTlEntry() {
-            if (!pendingExtract?.structured?.timeline) return;
-            pendingExtract.structured.timeline.push({ date: "", title: "", category: "その他", items: [] });
-            refreshPreviewTab('timeline');
+        // タイムライン追加・削除（pendingExtract or 保存済みプロジェクト対応）
+        function _getTl(el) {
+            // DOM要素から所属プロジェクトIDを取得
+            const tabContent = el ? el.closest('[data-project-id]') : null;
+            const pid = tabContent?.dataset?.projectId;
+            if (pid) {
+                _editingProjectId = pid;
+                const projects = getProjects();
+                return projects[pid]?.structured?.timeline;
+            }
+            return pendingExtract?.structured?.timeline;
         }
-        function removeTlEntry(ei) {
-            if (!pendingExtract?.structured?.timeline) return;
-            pendingExtract.structured.timeline.splice(ei, 1);
-            refreshPreviewTab('timeline');
+        function _refreshTlTab(el) {
+            const tabContent = el ? el.closest('[data-project-id]') : null;
+            const pid = tabContent?.dataset?.projectId;
+            if (pid) {
+                saveEditTarget();
+                const projects = getProjects();
+                const p = projects[pid];
+                const scrollTop = window.scrollY;
+                tabContent.innerHTML = renderStructuredContent('timeline', p.structured?.timeline, true, pid);
+                requestAnimationFrame(() => window.scrollTo(0, scrollTop));
+            } else {
+                refreshPreviewTab('timeline');
+            }
         }
-        function addTlItem(ei) {
-            if (!pendingExtract?.structured?.timeline?.[ei]) return;
-            pendingExtract.structured.timeline[ei].items.push({ label: "", children: [] });
-            refreshPreviewTab('timeline');
+        function addTlEntry(btnEl) {
+            const tl = _getTl(btnEl);
+            if (!tl) return;
+            tl.push({ date: "", title: "", category: "その他", items: [] });
+            _refreshTlTab(btnEl);
         }
-        function removeTlItem(ei, ii) {
-            if (!pendingExtract?.structured?.timeline?.[ei]) return;
-            pendingExtract.structured.timeline[ei].items.splice(ii, 1);
-            refreshPreviewTab('timeline');
+        function removeTlEntry(ei, btnEl) {
+            const tl = _getTl(btnEl);
+            if (!tl) return;
+            tl.splice(ei, 1);
+            _refreshTlTab(btnEl);
         }
-        function addTlChild(ei, ii) {
-            if (!pendingExtract?.structured?.timeline?.[ei]?.items?.[ii]) return;
-            pendingExtract.structured.timeline[ei].items[ii].children.push("");
-            refreshPreviewTab('timeline');
+        function addTlItem(ei, btnEl) {
+            const tl = _getTl(btnEl);
+            if (!tl?.[ei]) return;
+            tl[ei].items.push({ label: "", children: [] });
+            _refreshTlTab(btnEl);
         }
-        function removeTlChild(ei, ii, ci) {
-            if (!pendingExtract?.structured?.timeline?.[ei]?.items?.[ii]) return;
-            pendingExtract.structured.timeline[ei].items[ii].children.splice(ci, 1);
-            refreshPreviewTab('timeline');
+        function removeTlItem(ei, ii, btnEl) {
+            const tl = _getTl(btnEl);
+            if (!tl?.[ei]) return;
+            tl[ei].items.splice(ii, 1);
+            _refreshTlTab(btnEl);
+        }
+        function addTlChild(ei, ii, btnEl) {
+            const tl = _getTl(btnEl);
+            if (!tl?.[ei]?.items?.[ii]) return;
+            tl[ei].items[ii].children.push("");
+            _refreshTlTab(btnEl);
+        }
+        function removeTlChild(ei, ii, ci, btnEl) {
+            const tl = _getTl(btnEl);
+            if (!tl?.[ei]?.items?.[ii]) return;
+            tl[ei].items[ii].children.splice(ci, 1);
+            _refreshTlTab(btnEl);
         }
         function onTlCatChange(el) {
-            if (!pendingExtract?.structured?.timeline) return;
-            pendingExtract.structured.timeline[parseInt(el.dataset.ei)].category = el.value;
+            const tl = _getTl(el);
+            if (!tl) return;
+            tl[parseInt(el.dataset.ei)].category = el.value;
+            saveEditTarget();
         }
 
         function refreshPreviewTab(docType) {
@@ -1406,8 +2164,12 @@
                         }
                     });
                     if (editable) {
-                        html += '<td></td>'; // ＋列のスペーサー
-                        html += `<td><button onclick="removeTableRow(${si},${ri})" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:14px;" title="行を削除">✕</button></td>`;
+                        html += '<td></td>';
+                        html += `<td style="white-space:nowrap;">`;
+                        html += `<button onclick="moveTableRow(${si},${ri},-1)" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:11px;padding:0 2px;" title="上へ">▲</button>`;
+                        html += `<button onclick="moveTableRow(${si},${ri},1)" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:11px;padding:0 2px;" title="下へ">▼</button>`;
+                        html += `<button onclick="removeTableRow(${si},${ri})" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:14px;padding:0 2px;" title="行を削除">✕</button>`;
+                        html += `</td>`;
                     }
                     html += '</tr>';
                 });
@@ -1420,107 +2182,172 @@
             return html;
         }
 
-        // 解禁●トグル：クリックした列以降を全て●にする
-        function toggleRelease(td, si, ri, ci) {
-            // どのdocTypeか判定
-            const tabContent = td.closest('.detail-tab-content');
+        // テーブルデータ取得ヘルパー（pendingExtract or 保存済みプロジェクト両対応）
+        function _getTableData(el) {
+            const tabContent = el.closest('.detail-tab-content');
             const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
-            const data = pendingExtract?.structured?.[docType];
-            if (!data) return;
-
-            const relCols = data.release_columns || [];
-            const row = data.sections[si]?.rows[ri];
-            if (!row) return;
-
-            const currentVal = String(row[ci] || '');
-            const isCurrentlyReleased = currentVal.includes('●');
-
-            if (isCurrentlyReleased) {
-                // この列と右側を全て解除
-                for (const rc of relCols) {
-                    if (rc >= ci) row[rc] = '';
-                }
-            } else {
-                // この列と右側を全て●に
-                for (const rc of relCols) {
-                    if (rc >= ci) row[rc] = '●';
-                }
-                // この列より左で●がないものはそのまま
+            const projectId = tabContent?.dataset?.projectId;
+            if (pendingExtract?.structured?.[docType]) {
+                return { data: pendingExtract.structured[docType], docType, projectId, source: 'pending' };
             }
-
-            refreshPreviewTab(docType);
+            if (projectId) {
+                const p = getProjects()[projectId];
+                if (p?.structured?.[docType]) return { data: p.structured[docType], docType, projectId, source: 'saved' };
+            }
+            return { data: null };
         }
 
-        // テーブル行の追加・削除
+        function _saveTableData(info) {
+            if (info.source === 'pending') {
+                refreshPreviewTab(info.docType);
+            } else if (info.projectId) {
+                const p = getProjects()[info.projectId];
+                if (p) { saveProject(info.projectId, p); }
+                refreshSavedTab(info.projectId, info.docType);
+            }
+        }
+
+        function refreshSavedTab(projectId, docType) {
+            const tabEl = document.getElementById(`dtab-${projectId}-${docType}`);
+            if (!tabEl) return;
+            const p = getProjects()[projectId];
+            const data = p?.structured?.[docType];
+            if (!data) return;
+            tabEl.innerHTML = renderStructuredContent(docType, data, true, projectId);
+        }
+
+        // 解禁●トグル
+        function toggleRelease(td, si, ri, ci) {
+            const info = _getTableData(td);
+            if (!info.data) return;
+            const relCols = info.data.release_columns || [];
+            const row = info.data.sections[si]?.rows[ri];
+            if (!row) return;
+            const isReleased = String(row[ci] || '').includes('●');
+            if (isReleased) {
+                for (const rc of relCols) { if (rc >= ci) row[rc] = ''; }
+            } else {
+                for (const rc of relCols) { if (rc >= ci) row[rc] = '●'; }
+            }
+            _saveTableData(info);
+        }
+
+        // テーブル行の追加・削除・並べ替え
         function addTableRow(si) {
-            const tabContent = event.target.closest('.detail-tab-content');
-            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
-            const data = pendingExtract?.structured?.[docType];
-            if (!data?.sections?.[si]) return;
-            const colCount = data.headers.length;
-            data.sections[si].rows.push(new Array(colCount).fill(''));
-            refreshPreviewTab(docType);
+            const info = _getTableData(event.target);
+            if (!info.data?.sections?.[si]) return;
+            info.data.sections[si].rows.push(new Array(info.data.headers.length).fill(''));
+            _saveTableData(info);
         }
 
         function removeTableRow(si, ri) {
-            const tabContent = event.target.closest('.detail-tab-content');
-            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
-            const data = pendingExtract?.structured?.[docType];
-            if (!data?.sections?.[si]) return;
-            data.sections[si].rows.splice(ri, 1);
-            refreshPreviewTab(docType);
+            const info = _getTableData(event.target);
+            if (!info.data?.sections?.[si]) return;
+            info.data.sections[si].rows.splice(ri, 1);
+            _saveTableData(info);
+        }
+
+        function moveTableRow(si, ri, dir) {
+            const info = _getTableData(event.target);
+            if (!info.data?.sections?.[si]) return;
+            const rows = info.data.sections[si].rows;
+            const newRi = ri + dir;
+            if (newRi < 0 || newRi >= rows.length) return;
+            [rows[ri], rows[newRi]] = [rows[newRi], rows[ri]];
+            _saveTableData(info);
         }
 
         function addReleaseColumn() {
-            const tabContent = event.target.closest('.detail-tab-content');
-            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
-            const data = pendingExtract?.structured?.[docType];
-            if (!data) return;
+            const info = _getTableData(event.target);
+            if (!info.data) return;
             const newName = prompt("新しい解禁タイミング列の名前を入力（例: 11月PV3）");
             if (!newName) return;
-            const newIdx = data.headers.length;
-            data.headers.push(newName);
-            if (!data.release_columns) data.release_columns = [];
-            data.release_columns.push(newIdx);
-            // 全行に空セルを追加
-            for (const section of data.sections) {
-                for (const row of section.rows) {
-                    row.push("");
-                }
+            const newIdx = info.data.headers.length;
+            info.data.headers.push(newName);
+            if (!info.data.release_columns) info.data.release_columns = [];
+            info.data.release_columns.push(newIdx);
+            for (const section of info.data.sections) {
+                for (const row of section.rows) { row.push(""); }
             }
-            refreshPreviewTab(docType);
+            _saveTableData(info);
         }
 
         function onHeaderEdit(el) {
-            const tabContent = el.closest('.detail-tab-content');
-            const docType = tabContent?.id?.includes('text_master') ? 'text_master' : 'budget';
-            const data = pendingExtract?.structured?.[docType];
-            if (!data) return;
-            data.headers[parseInt(el.dataset.ci)] = el.value;
+            const info = _getTableData(el);
+            if (!info.data) return;
+            info.data.headers[parseInt(el.dataset.ci)] = el.value;
         }
 
-        // 編集イベント（pendingExtractに反映）
+        // 日付ヘルパー: "2026/09/04" or "2026-09-04" → "2026-09-04" (date input用)
+        // 年推定: M/Dのみの場合、現在年を補完
+        function inferYear(month) {
+            const now = new Date();
+            return now.getFullYear();
+        }
+
+        // 任意の日付文字列 → "YYYY-MM-DD" (date input用)
+        function toDateInputVal(d) {
+            if (!d || d === '日付未定') return '';
+            // YYYY/MM/DD or YYYY-MM-DD
+            let m = d.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+            // MM/DD（年なし）
+            m = d.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+            if (m) {
+                const y = inferYear(parseInt(m[1]));
+                return `${y}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+            }
+            return '';
+        }
+
+        // 日付 → 表示用 "2026/9/4"
+        function formatDateDisplay(d) {
+            if (!d || d === '日付未定') return '日付未定';
+            let m = d.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (m) return `${m[1]}/${parseInt(m[2])}/${parseInt(m[3])}`;
+            // MM/DD
+            m = d.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+            if (m) return `${inferYear(parseInt(m[1]))}/${parseInt(m[1])}/${parseInt(m[2])}`;
+            return d;
+        }
+
+        // date input値 → 保存形式 "YYYY/MM/DD"
+        function fromDateInput(val) {
+            if (!val) return '日付未定';
+            const m = val.match(/(\d{4})-(\d{2})-(\d{2})/);
+            return m ? `${m[1]}/${m[2]}/${m[3]}` : val;
+        }
+
         function onTlEdit(el) {
-            if (!pendingExtract || !pendingExtract.structured || !pendingExtract.structured.timeline) return;
-            const tl = pendingExtract.structured.timeline;
+            const tl = _getTl(el);
+            if (!tl) return;
             const ei = parseInt(el.dataset.ei);
             const field = el.dataset.field;
-            if (field === 'date') { tl[ei].date = el.value; }
+            if (field === 'date') { tl[ei].date = fromDateInput(el.value); }
             else if (field === 'title') { tl[ei].title = el.value; }
             else if (field === 'label') { tl[ei].items[parseInt(el.dataset.ii)].label = el.value; }
             else if (field === 'child') { tl[ei].items[parseInt(el.dataset.ii)].children[parseInt(el.dataset.ci)] = el.value; }
+            saveEditTarget();
         }
 
         function onTableEdit(el) {
-            if (!pendingExtract) return;
-            const tabId = el.closest('.detail-tab-content')?.id || '';
-            const docType = tabId.includes('text_master') ? 'text_master' : 'budget';
-            const data = pendingExtract.structured?.[docType];
+            const tabContent = el.closest('[data-project-id]');
+            const pid = tabContent?.dataset?.projectId;
+            const docType = tabContent?.dataset?.docType || (tabContent?.id?.includes('text_master') ? 'text_master' : 'budget');
+            let data;
+            if (pid) {
+                _editingProjectId = pid;
+                const projects = getProjects();
+                data = projects[pid]?.structured?.[docType];
+            } else {
+                data = pendingExtract?.structured?.[docType];
+            }
             if (!data) return;
             const si = parseInt(el.dataset.si), ri = parseInt(el.dataset.ri), ci = parseInt(el.dataset.ci);
             if (data.sections[si] && data.sections[si].rows[ri]) {
                 data.sections[si].rows[ri][ci] = el.value;
             }
+            saveEditTarget();
         }
 
         function switchPreviewTab(tabKey, btnEl) {
@@ -1533,9 +2360,8 @@
 
         function confirmProject() {
             if (!pendingExtract) return;
-            const projects = getProjects();
             const id = "pj_" + Date.now();
-            projects[id] = {
+            const projectData = {
                 name: pendingExtract.name,
                 urls: pendingExtract.urls,
                 extracted: pendingExtract.extracted,
@@ -1543,7 +2369,8 @@
                 documents: pendingExtract.documents,
                 created_at: new Date().toISOString(),
             };
-            saveProjects(projects);
+            console.log("[Save] Saving project:", id, projectData.name);
+            saveProject(id, projectData);
             pendingExtract = null;
             document.getElementById("pj-extract-preview").style.display = "none";
             // フォームクリア
@@ -1560,29 +2387,410 @@
             document.getElementById("pj-extract-preview").style.display = "none";
         }
 
-        function deleteProject(id) {
-            if (!confirm("このプロジェクトを削除しますか？")) return;
+        // ガントチャート用グローバル: タイムラインデータを保持
+        let _ganttTimeline = null;
+
+        // ===== ツイートカレンダー =====
+        function renderTweetCalendar(projectId, project) {
+            const drafts = project.tweetDrafts || {};
+            const tl = project.structured?.timeline || [];
+            const statusMap = {
+                not_started: { label: "未着手", bg: "#3f3f46", color: "#71717a" },
+                draft: { label: "下書き", bg: "#27272a", color: "#a1a1aa" },
+                pending: { label: "承認待ち", bg: "#92400e", color: "#fbbf24" },
+                approved: { label: "承認済み", bg: "#14532d", color: "#4ade80" },
+                posted: { label: "投稿済み", bg: "#1e3a5f", color: "#60a5fa" }
+            };
+            const catColors = {
+                "X更新": "#1d9bf0", "SNS更新": "#2563eb", "プレスリリース": "#16a34a", "制作物": "#9333ea",
+                "WEB/HP": "#0891b2", "イベント": "#ea580c",
+            };
+
+            // 全施策を展開（X更新/SNS更新 → ツイート、プレスリリース → PR）
+            const TWEET_CATS = ["X更新"];
+            const PR_CATS = ["プレスリリース"];
+            const allTasks = [];
+            tl.forEach((entry, ei) => {
+                if (!EXPAND_CATEGORIES.includes(entry.category)) return;
+                const type = PR_CATS.includes(entry.category) ? "pr" : "tweet";
+                if (entry.items?.length > 0) {
+                    entry.items.forEach((item, ii) => {
+                        const txt = typeof item === 'string' ? item : (item.text || item.label || '');
+                        if (!txt) return;
+                        allTasks.push({ key: `${ei}:${ii}`, date: entry.date || "", category: entry.category, taskName: txt, type });
+                    });
+                } else {
+                    allTasks.push({ key: `${ei}:`, date: entry.date || "", category: entry.category, taskName: entry.title || "(無題)", type });
+                }
+            });
+            // 手動追加分
+            Object.keys(drafts).forEach(key => {
+                if (!allTasks.find(t => t.key === key)) {
+                    const d = drafts[key];
+                    allTasks.push({ key, date: d.postDate || "", category: "その他", taskName: "手動追加", type: "tweet" });
+                }
+            });
+            allTasks.sort((a, b) => {
+                const da = drafts[a.key]?.postDate || a.date || "9999";
+                const db = drafts[b.key]?.postDate || b.date || "9999";
+                return (da + (drafts[a.key]?.postTime || "99:99")).localeCompare(db + (drafts[b.key]?.postTime || "99:99"));
+            });
+
+            function buildTable(tasks, label) {
+                const total = tasks.length;
+                const created = tasks.filter(t => drafts[t.key]).length;
+                const progress = total > 0 ? Math.round((created / total) * 100) : 0;
+                const counts = { not_started: 0, draft: 0, pending: 0, approved: 0, posted: 0 };
+                tasks.forEach(t => { const s = drafts[t.key]?.status || (drafts[t.key] ? "draft" : "not_started"); counts[s]++; });
+
+                const rows = tasks.map(task => {
+                    const d = drafts[task.key];
+                    const hasDraft = !!d;
+                    const status = d ? (d.status || "draft") : "not_started";
+                    const st = statusMap[status];
+                    const body = d?.body || "";
+                    const charCount = body.length;
+                    const charColor = !hasDraft ? "#3f3f46" : charCount > 280 ? "#ef4444" : charCount > 250 ? "#f59e0b" : "#a1a1aa";
+                    const preview = body ? escapeHtml(body.replace(/\n/g, " ")).slice(0, 50) + (body.length > 50 ? "…" : "") : "";
+                    const images = (d?.images || []).length;
+                    const date = d?.postDate || task.date || "未定";
+                    const time = d?.postTime || "--:--";
+                    const catColor = catColors[task.category] || "#3f3f46";
+                    const rowBg = !hasDraft ? "rgba(63,63,70,0.15)" : "";
+                    return `<tr style="border-bottom:1px solid #27272a;cursor:pointer;background:${rowBg};" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
+                        <td style="padding:6px 8px;white-space:nowrap;font-size:12px;color:${hasDraft ? '#e4e4e7' : '#52525b'};">${escapeHtml(date)}</td>
+                        <td style="padding:6px 8px;white-space:nowrap;font-size:12px;color:${hasDraft ? '#a1a1aa' : '#52525b'};">${hasDraft ? escapeHtml(time) : '--:--'}</td>
+                        <td style="padding:6px 8px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(task.taskName)}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:${hasDraft ? '#e4e4e7' : '#3f3f46'};max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
+                        <td style="padding:6px 8px;text-align:center;font-size:11px;color:${charColor};">${hasDraft ? charCount : '-'}</td>
+                        <td style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">${images > 0 ? '📷'+images : '-'}</td>
+                        <td style="padding:6px 8px;"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${st.bg};color:${st.color};">${st.label}</span></td>
+                    </tr>`;
+                }).join("");
+
+                if (total === 0) return `<div style="color:#52525b;text-align:center;padding:20px;font-size:13px;">${label}の施策はありません</div>`;
+
+                return `<div style="margin-bottom:8px;">
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
+                        <span style="font-size:12px;color:#e4e4e7;font-weight:600;">${total}件</span>
+                        ${Object.entries(counts).filter(([k,v]) => v > 0).map(([k,v]) => { const s = statusMap[k]; return `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${s.bg};color:${s.color};">${s.label}:${v}</span>`; }).join("")}
+                    </div>
+                    <div style="background:#27272a;border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px;">
+                        <div style="background:#6366f1;height:100%;width:${progress}%;"></div>
+                    </div>
+                    <div style="font-size:10px;color:#52525b;margin-bottom:8px;">進捗: ${created}/${total} (${progress}%)</div>
+                </div>
+                <div style="overflow-x:auto;border:1px solid #27272a;border-radius:8px;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead><tr style="background:#1a1a2e;border-bottom:2px solid #6366f1;">
+                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">日付</th>
+                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">時間</th>
+                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">施策</th>
+                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">本文</th>
+                            <th style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">文字数</th>
+                            <th style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">画像</th>
+                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">状態</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+            }
+
+            const tweetTasks = allTasks.filter(t => t.type === "tweet");
+            const prTasks = allTasks.filter(t => t.type === "pr");
+            const calUid = "cal_" + projectId;
+
+            return `<div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #27272a;">
+                <button class="detail-tab-btn active" onclick="switchCalTab('${calUid}','tweet',this)" style="padding:8px 20px;font-size:13px;">ツイート (${tweetTasks.length})</button>
+                <button class="detail-tab-btn" onclick="switchCalTab('${calUid}','pr',this)" style="padding:8px 20px;font-size:13px;">プレスリリース (${prTasks.length})</button>
+            </div>
+            <div id="cal-${calUid}-tweet">${buildTable(tweetTasks, "ツイート")}</div>
+            <div id="cal-${calUid}-pr" style="display:none;">${buildTable(prTasks, "プレスリリース")}</div>`;
+        }
+
+        function switchCalTab(uid, tab, btn) {
+            document.getElementById("cal-" + uid + "-tweet").style.display = tab === "tweet" ? "" : "none";
+            document.getElementById("cal-" + uid + "-pr").style.display = tab === "pr" ? "" : "none";
+            btn.parentElement.querySelectorAll(".detail-tab-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+        }
+
+        function openTweetFromCalendar(projectId, taskRef) {
+            // コンテンツ生成タブに切り替えて該当施策を選択
+            switchTab('content');
+            document.getElementById("project-select").value = projectId;
+            applyProject();
+            updateTaskSelect();
+            setTimeout(() => {
+                const taskSelect = document.getElementById("task-select");
+                // taskRefに一致するオプションを選択
+                for (const opt of taskSelect.options) {
+                    if (opt.value === taskRef) {
+                        taskSelect.value = taskRef;
+                        applyTask();
+                        break;
+                    }
+                }
+            }, 100);
+        }
+
+        function renderGanttChart(timeline, projectName) {
+            if (!timeline || !timeline.length) return '<div style="color:#71717a;text-align:center;padding:40px;">タイムラインデータがありません</div>';
+            _ganttTimeline = timeline;
+
+            const CAT_MAP = {
+                "プレスリリース": "プレスリリース", "アニメ制作": "アニメ制作", "MTG": "MTG",
+                "X更新": "X更新", "SNS更新": "SNS更新", "イベント": "イベント", "WEB/HP": "WEB/HP", "制作物": "制作物",
+                "メディア": "メディア", "コラボ/グッズ": "コラボ/グッズ",
+                // 旧名からの互換
+                "制作進行": "アニメ制作", "Web/HP": "WEB/HP", "PV/映像": "制作物",
+            };
+            const CATEGORIES = ["プレスリリース", "WEB/HP", "イベント", "X更新", "SNS更新", "制作物", "アニメ制作", "MTG", "その他"];
+
+            const months_set = new Set();
+            timeline.forEach(e => { const m = e.date?.match(/^(\d{1,2})\//); if (m) months_set.add(parseInt(m[1])); });
+            const now = new Date();
+            let startMonth = months_set.size ? Math.min(...months_set) : now.getMonth() + 1;
+            let startYear = now.getFullYear();
+            const months = [];
+            let y = startYear, mo = startMonth;
+            for (let i = 0; i < 18; i++) { months.push({ year: y, month: mo }); mo++; if (mo > 12) { mo = 1; y++; } }
+
+            // イベントをカテゴリ×月×週に分類（元のtimelineインデックスを保持）
+            const catEvents = {};
+            CATEGORIES.forEach(c => catEvents[c] = {});
+            timeline.forEach((entry, idx) => {
+                const cat = CAT_MAP[entry.category] || entry.category || "その他";
+                const target = CATEGORIES.includes(cat) ? cat : "その他";
+                const m = entry.date?.match(/^(\d{1,2})\/(\d{1,2})/);
+                if (!m) return;
+                const month = parseInt(m[1]), week = Math.min(Math.floor((parseInt(m[2]) - 1) / 7), 3);
+                const key = `${month}-${week}`;
+                if (!catEvents[target][key]) catEvents[target][key] = [];
+                catEvents[target][key].push({ text: entry.title || "", idx });
+            });
+
+            // テーブル
+            let html = '<div class="gantt-layout">';
+            html += '<div class="gantt-main"><div class="gantt-wrapper"><table class="gantt-table">';
+
+            // 年ヘッダー
+            html += '<tr><th class="gantt-cat"></th>';
+            let prevYear = null;
+            months.forEach(m => { if (m.year !== prevYear) { html += `<th colspan="${months.filter(x => x.year === m.year).length * 4}" class="gantt-year">${m.year}年</th>`; prevYear = m.year; } });
+            html += '</tr>';
+
+            html += '<tr><th class="gantt-cat">実施項目</th>';
+            months.forEach(m => { html += `<th colspan="4" class="gantt-month">${m.month}月</th>`; });
+            html += '</tr>';
+
+            html += '<tr><th class="gantt-cat"></th>';
+            months.forEach(() => { for (let w = 1; w <= 4; w++) html += `<th class="gantt-week">${w}W</th>`; });
+            html += '</tr>';
+
+            CATEGORIES.forEach(catName => {
+                const events = catEvents[catName];
+                const eventKeys = Object.keys(events);
+                if (!eventKeys.length) {
+                    html += `<tr><td class="gantt-cat gantt-cat-${catName}">${catName}</td>`;
+                    months.forEach(() => { for (let w = 0; w < 4; w++) html += '<td></td>'; });
+                    html += '</tr>';
+                    return;
+                }
+                const maxItems = Math.max(...Object.values(events).map(v => v.length), 1);
+                for (let row = 0; row < maxItems; row++) {
+                    html += `<tr><td class="gantt-cat gantt-cat-${catName}">${row === 0 ? catName : ''}</td>`;
+                    months.forEach(m => {
+                        for (let w = 0; w < 4; w++) {
+                            const key = `${m.month}-${w}`;
+                            const items = events[key] || [];
+                            if (row < items.length) {
+                                html += `<td class="gantt-event" onclick="showGanttDetail(${items[row].idx}, this)" title="${items[row].text}">${items[row].text}</td>`;
+                            } else { html += '<td></td>'; }
+                        }
+                    });
+                    html += '</tr>';
+                }
+            });
+
+            html += '</table></div></div>';
+
+            // 詳細パネル
+            html += '<div class="gantt-detail" id="gantt-detail-panel">';
+            html += '<div style="color:#71717a;text-align:center;padding:20px;">セルをクリックで詳細表示</div>';
+            html += '</div>';
+
+            html += '</div>';
+            return html;
+        }
+
+        function showGanttDetail(idx, el) {
+            if (!_ganttTimeline || !_ganttTimeline[idx]) return;
+            const entry = _ganttTimeline[idx];
+            const panel = document.getElementById('gantt-detail-panel');
+            if (!panel) return;
+
+            document.querySelectorAll('.gantt-event.selected').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+
+            const cat = entry.category || 'その他';
+            const catClass = 'tl-cat-' + cat.replace(/[\/]/g, '');
+            const ei = idx;
+
+            let html = `<button class="gantt-detail-close" onclick="document.getElementById('gantt-detail-panel').classList.remove('active')">✕</button>`;
+
+            // 編集可能なタイムラインカード形式
+            html += `<div class="tl-entry" style="border:none;margin:0;padding:0;" data-ei="${ei}">`;
+            html += '<div class="tl-date-row" style="cursor:default;flex-wrap:wrap;">';
+            const gdv = toDateInputVal(entry.date);
+            html += gdv
+                ? `<input type="date" class="tl-date-input" value="${gdv}" data-ei="${ei}" data-field="date" onchange="onGanttDetailEdit(this)" onclick="event.stopPropagation()">`
+                : `<input class="tl-date-input" value="日付未定" data-ei="${ei}" data-field="date" onchange="onGanttDetailEdit(this)" onclick="event.stopPropagation()" onfocus="this.type='date';this.value=''">`;
+            html += `<select class="tl-cat-select" data-ei="${ei}" onchange="onGanttDetailCatChange(this)" style="background:#18181b;border:1px solid #3f3f46;border-radius:10px;color:#a1a1aa;font-size:10px;padding:2px 6px;">`;
+            TL_CATEGORIES.forEach(c => { html += `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`; });
+            html += '</select>';
+            html += `<input value="${escapeHtml(entry.title || '')}" data-ei="${ei}" data-field="title" onchange="onGanttDetailEdit(this)" style="flex:1;min-width:100px;background:#09090b;border:1px solid #3f3f46;border-radius:4px;color:#fff;padding:4px 6px;font-size:13px;font-weight:600;">`;
+            html += '</div>';
+
+            html += '<div class="tl-body" style="display:block;">';
+            if (entry.items && entry.items.length) {
+                html += '<div class="tl-items">';
+                entry.items.forEach((item, ii) => {
+                    const label = typeof item === 'string' ? item : (item.label || item.text || '');
+                    const children = (typeof item === 'object' && item.children) ? item.children : [];
+                    html += '<div class="tl-item">';
+                    html += '<div class="tl-item-label">';
+                    html += `<input value="${escapeHtml(label)}" data-ei="${ei}" data-ii="${ii}" data-field="label" onchange="onGanttDetailEdit(this)">`;
+                    html += '</div>';
+                    if (children.length) {
+                        html += '<div class="tl-children">';
+                        children.forEach((ch, ci) => {
+                            const ct = typeof ch === 'string' ? ch : (ch.text || '');
+                            html += `<div class="tl-child"><input value="${escapeHtml(ct)}" data-ei="${ei}" data-ii="${ii}" data-ci="${ci}" data-field="child" onchange="onGanttDetailEdit(this)"></div>`;
+                        });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            html += '</div></div>';
+
+            panel.innerHTML = html;
+            panel.classList.add('active');
+        }
+
+        function onGanttDetailEdit(el) {
+            if (!_ganttTimeline) return;
+            const ei = parseInt(el.dataset.ei);
+            const field = el.dataset.field;
+            const entry = _ganttTimeline[ei];
+            if (!entry) return;
+            if (field === 'date') entry.date = fromDateInput(el.value);
+            else if (field === 'title') entry.title = el.value;
+            else if (field === 'label') entry.items[parseInt(el.dataset.ii)].label = el.value;
+            else if (field === 'child') entry.items[parseInt(el.dataset.ii)].children[parseInt(el.dataset.ci)] = el.value;
+            saveEditTarget();
+        }
+
+        function onGanttDetailCatChange(el) {
+            if (!_ganttTimeline) return;
+            _ganttTimeline[parseInt(el.dataset.ei)].category = el.value;
+            saveEditTarget();
+        }
+
+        async function generateGantt(id) {
             const projects = getProjects();
-            delete projects[id];
-            saveProjects(projects);
+            const p = projects[id];
+            if (!p) return alert("プロジェクトが見つかりません");
+
+            const timeline = p.structured?.timeline;
+            if (!timeline || !timeline.length) return alert("タイムラインデータがありません。先にプロジェクトを登録してください。");
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = "生成中...";
+
+            try {
+                const resp = await fetch("/api/generate_gantt", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${authToken}`,
+                    },
+                    body: JSON.stringify({
+                        title: p.name,
+                        timeline: timeline,
+                    }),
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.error || "生成に失敗しました");
+                }
+
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${p.name}_宣伝スケジュール.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert("ガントチャート生成エラー: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "ガントチャート";
+            }
+        }
+
+        function removeProjectUI(id) {
+            if (!confirm("このプロジェクトを削除しますか？")) return;
+            deleteProject(id); // Firestore＋キャッシュから削除
             renderProjectList();
         }
 
-        async function reExtractProject(id) {
+        function showReExtractDialog(id) {
+            const p = getProjects()[id];
+            if (!p) return;
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:24px;width:480px;max-width:90vw;">
+                    <h3 style="color:#fff;font-size:16px;margin-bottom:12px;">再抽出 - ${escapeHtml(p.name)}</h3>
+                    <p style="color:#a1a1aa;font-size:12px;margin-bottom:12px;">AIへの追加指示（任意）：日付の補正や分類の修正などを指定できます</p>
+                    <textarea id="reextract-instructions" placeholder="例: 日付は2025年11月からスタート。放送開始は2026年10月。&#10;例: YouTube更新はSNS更新に分類して" style="width:100%;height:80px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;padding:10px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+                    <div style="display:flex;gap:8px;margin-top:16px;">
+                        <button onclick="executeReExtract('${id}', this.closest('div').parentElement)" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;">再抽出を実行</button>
+                        <button onclick="this.closest('div').closest('div').closest('div').remove()" style="padding:10px 20px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;border-radius:8px;cursor:pointer;">キャンセル</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        }
+
+        async function executeReExtract(id, modalEl) {
+            const instructions = document.getElementById('reextract-instructions')?.value?.trim() || '';
+            if (modalEl) modalEl.closest('div[style*="position:fixed"]')?.remove();
+
             const projects = getProjects();
             const p = projects[id];
             if (!p || !p.urls) return;
 
-            // URLを復元してフォームに入れ、再登録を実行
             document.getElementById("pj-name").value = p.name;
             for (const [key, url] of Object.entries(p.urls)) {
-                document.getElementById("pj-url-" + key).value = url;
+                const el = document.getElementById("pj-url-" + key);
+                if (el) el.value = url;
             }
-            // 古いプロジェクトを削除してから再登録
-            delete projects[id];
-            saveProjects(projects);
+            // 指示をグローバル変数に一時保存
+            window._reextractInstructions = instructions;
+            deleteProject(id);
             renderProjectList();
             await registerProject();
+            window._reextractInstructions = '';
         }
 
         // ===== コンテンツ生成: プロジェクト自動入力 =====
@@ -1620,9 +2828,593 @@
             }
         }
 
+        // 中項目を展開すべきカテゴリ（中項目が個別の施策となるもの）
+        const EXPAND_CATEGORIES = ["X更新", "SNS更新", "プレスリリース", "制作物", "WEB/HP", "イベント"];
+
+        function updateTaskSelect() {
+            const projectId = document.getElementById("project-select").value;
+            const taskGroup = document.getElementById("task-selector-group");
+            const taskSelect = document.getElementById("task-select");
+            taskSelect.innerHTML = '<option value="">-- 施策を選択 --</option>';
+            if (!projectId) { taskGroup.style.display = "none"; return; }
+            const p = getProjects()[projectId];
+            console.log("[updateTaskSelect] projectId:", projectId, "keys:", p ? Object.keys(p) : "null", "structured:", p?.structured ? Object.keys(p.structured) : "null", "timeline:", p?.structured?.timeline?.length || 0);
+            if (!p?.structured?.timeline) { taskGroup.style.display = "none"; return; }
+
+            const tl = p.structured.timeline;
+            // デバッグ: カテゴリ分布を表示
+            const catCount = {};
+            tl.forEach(e => { catCount[e.category] = (catCount[e.category]||0) + 1; });
+            console.log("[updateTaskSelect] categories:", catCount);
+            tl.forEach((entry, ei) => {
+                if (!EXPAND_CATEGORIES.includes(entry.category)) return;
+                const date = entry.date || "日付未定";
+                const cat = entry.category;
+
+                if (entry.items?.length > 0) {
+                    // 中項目がある → 各中項目を独立施策として展開
+                    entry.items.forEach((item, ii) => {
+                        const txt = typeof item === 'string' ? item : (item.text || item.label || '');
+                        if (!txt) return;
+                        const opt = document.createElement("option");
+                        opt.value = `${ei}:${ii}`;
+                        opt.textContent = `[${date}] ${cat} ▸ ${txt}`;
+                        taskSelect.appendChild(opt);
+                    });
+                } else {
+                    // 中項目なし → エントリ自体を施策として表示
+                    const opt = document.createElement("option");
+                    opt.value = `${ei}:`;
+                    opt.textContent = `[${date}] ${cat}: ${entry.title || "(無題)"}`;
+                    taskSelect.appendChild(opt);
+                }
+            });
+            console.log("[updateTaskSelect] options count:", taskSelect.options.length);
+            taskGroup.style.display = taskSelect.options.length > 1 ? "block" : "none";
+        }
+
+        function applyTask() {
+            const projectId = document.getElementById("project-select").value;
+            const val = document.getElementById("task-select").value;
+            if (!projectId || !val) return;
+
+            const [eiStr, iiStr] = val.split(":");
+            const ei = parseInt(eiStr);
+            const p = getProjects()[projectId];
+            if (!p?.structured?.timeline) return;
+            const entry = p.structured.timeline[ei];
+            if (!entry) return;
+
+            const e = p.extracted || {};
+
+            // カテゴリに応じてコンテンツタイプを自動切り替え
+            if (entry.category === "プレスリリース") {
+                switchContentType("press_release");
+            } else {
+                switchContentType("tweet");
+            }
+
+            let taskTitle = entry.title;
+            let details = [];
+
+            if (iiStr !== "") {
+                // 特定の中項目が選択された
+                const ii = parseInt(iiStr);
+                const item = entry.items?.[ii];
+                if (item) {
+                    taskTitle = typeof item === 'string' ? item : (item.text || item.label || entry.title);
+                    if (item.children) {
+                        item.children.forEach(c => {
+                            details.push(typeof c === 'string' ? c : c.text || '');
+                        });
+                    }
+                }
+            } else {
+                // エントリ全体
+                if (entry.items) {
+                    entry.items.forEach(it => {
+                        const txt = typeof it === 'string' ? it : (it.text || it.label || '');
+                        if (txt) details.push(txt);
+                    });
+                }
+            }
+
+            if (currentContentType === "tweet") {
+                // 新しいツイートエディターパネルを表示
+                showTweetEditor({
+                    projectName: e.title || p.name,
+                    taskTitle,
+                    details,
+                    date: entry.date,
+                    category: entry.category,
+                    hashtags: e.hashtags || "",
+                    url: e.official_url || "",
+                    broadcastInfo: e.broadcast_info || "",
+                    extracted: e
+                });
+            } else {
+                // プレスリリースは従来フォーム
+                document.getElementById("tweet-editor-panel").style.display = "none";
+                document.getElementById("legacy-content-form").style.display = "";
+                setField("title", e.title || p.name);
+                setField("headline", taskTitle || "");
+                setField("lead_summary", [taskTitle, ...details.slice(0, 5)].filter(Boolean).join("\n"));
+                setField("staff_cast", [e.staff, e.cast].filter(Boolean).join("\n"));
+                setField("synopsis", e.synopsis || "");
+                setField("source_material", e.source_material || "");
+                setField("official_links", [e.official_url, e.official_x, e.hashtags].filter(Boolean).join("\n"));
+            }
+        }
+
         function setField(fieldId, value) {
             const el = document.getElementById("cf-" + fieldId);
             if (el && value) el.value = value;
+        }
+
+        // ===== 施策タイプ別テンプレート =====
+        const TASK_TEMPLATES = {
+            "情報告知": {
+                label: "情報告知",
+                detect: ["キャスト", "PV", "KV", "キービジュアル", "放送", "スタッフ", "主題歌", "OP", "ED", "配信", "ティザー", "発表", "公開", "解禁"],
+                fields: [
+                    { id: "announce_content", label: "発表する内容", type: "text", placeholder: "例: メインキャスト第2弾発表" },
+                    { id: "announce_detail", label: "詳細情報", type: "textarea", placeholder: "例: アモナ役：高野零\nロニ役：西山ユウキ" },
+                    { id: "visual_url", label: "添付素材（PV/KV等のURL）", type: "text", placeholder: "https://youtu.be/..." },
+                    { id: "landing_url", label: "誘導先URL", type: "text", placeholder: "公式サイトの該当ページ等" },
+                ]
+            },
+            "キャンペーン_プレゼント": {
+                label: "プレゼントキャンペーン",
+                detect: ["プレキャン", "プレゼント", "サイン", "色紙", "フォロー", "リツイート", "RT", "抽選"],
+                fields: [
+                    { id: "campaign_name", label: "キャンペーン名", type: "text", placeholder: "例: フォロー&RTキャンペーン" },
+                    { id: "prize", label: "プレゼント内容", type: "text", placeholder: "例: キャスト直筆サイン入りアフレコ台本" },
+                    { id: "winners", label: "当選人数", type: "text", placeholder: "例: 抽選で3名様" },
+                    { id: "entry_method", label: "応募条件", type: "select", options: ["フォロー&リポスト", "フォロー&引用リポスト", "フォロー&ハッシュタグ投稿", "フォロー&リプライ", "その他"] },
+                    { id: "entry_period", label: "応募期間", type: "text", placeholder: "例: 10/1 12:00 〜 10/14 23:59" },
+                    { id: "budget", label: "予算（社内メモ）", type: "text", placeholder: "例: 5万円（制作費+送料）" },
+                    { id: "lottery_type", label: "抽選方式", type: "select", options: ["後日抽選", "インスタントウィン（即時）"] },
+                    { id: "delivery", label: "発送/受渡方法", type: "text", placeholder: "例: DM連絡→着払い発送" },
+                ]
+            },
+            "キャンペーン_参加型": {
+                label: "参加型キャンペーン",
+                detect: ["投票", "診断", "感想", "ファンアート", "UGC", "お題"],
+                fields: [
+                    { id: "campaign_name", label: "企画名", type: "text", placeholder: "例: #推しキャラ総選挙" },
+                    { id: "theme", label: "テーマ/お題", type: "text", placeholder: "例: あなたの推しキャラは？" },
+                    { id: "how_to_join", label: "参加方法", type: "textarea", placeholder: "例: ハッシュタグをつけて推しキャラへの愛を投稿" },
+                    { id: "entry_period", label: "参加期間", type: "text", placeholder: "例: 10/1 〜 10/14" },
+                    { id: "incentive", label: "インセンティブ（任意）", type: "text", placeholder: "例: 参加者から抽選でQUOカード" },
+                ]
+            },
+            "イベント告知": {
+                label: "イベント告知",
+                detect: ["イベント", "先行上映", "ステージ", "トークショー", "コラボカフェ", "マチアソビ", "つづきみ", "AnimeJapan"],
+                fields: [
+                    { id: "event_name", label: "イベント名", type: "text", placeholder: "例: TVアニメ先行上映会" },
+                    { id: "event_date", label: "開催日時", type: "text", placeholder: "例: 2026年9月21日(日) 14:00開演" },
+                    { id: "event_venue", label: "会場", type: "text", placeholder: "例: 新宿バルト9" },
+                    { id: "event_cast", label: "出演者/登壇者", type: "textarea", placeholder: "例: 高野零、西山ユウキ、西村あかね" },
+                    { id: "ticket_info", label: "チケット情報", type: "text", placeholder: "例: 一般1,500円 / 先着順" },
+                    { id: "ticket_url", label: "チケット/詳細URL", type: "text", placeholder: "https://..." },
+                ]
+            },
+            "放送連動": {
+                label: "放送連動ツイート",
+                detect: ["放送前", "放送後", "カウントダウン", "視聴", "次回予告", "名場面", "感想", "実況"],
+                fields: [
+                    { id: "episode", label: "話数", type: "text", placeholder: "例: 第3話" },
+                    { id: "episode_title", label: "サブタイトル", type: "text", placeholder: "例: 闇の召喚獣" },
+                    { id: "broadcast_time", label: "放送日時", type: "text", placeholder: "例: TOKYO MX 毎週○曜 0:00〜" },
+                    { id: "timing", label: "投稿タイミング", type: "select", options: ["放送30分前", "放送直前", "放送直後", "翌日"] },
+                    { id: "synopsis", label: "あらすじ/見どころ", type: "textarea", placeholder: "ネタバレに注意！公開可能な範囲で" },
+                    { id: "streaming_url", label: "配信URL", type: "text", placeholder: "https://abema.tv/..." },
+                ]
+            },
+            "コラボ_グッズ": {
+                label: "コラボ/グッズ告知",
+                detect: ["コラボ", "グッズ", "タイアップ", "商品", "発売", "パッケージ", "CM"],
+                fields: [
+                    { id: "product_name", label: "商品/コラボ名", type: "text", placeholder: "例: ローソンコラボキャンペーン" },
+                    { id: "release_date", label: "発売日/開始日", type: "text", placeholder: "例: 2026年10月1日〜" },
+                    { id: "price", label: "価格", type: "text", placeholder: "例: 1,980円(税込)" },
+                    { id: "where_to_buy", label: "販売場所/URL", type: "text", placeholder: "例: 全国のローソン / https://..." },
+                    { id: "special_bonus", label: "特典情報", type: "text", placeholder: "例: 購入特典クリアファイル" },
+                ]
+            },
+            "定型運用": {
+                label: "定型ツイート",
+                detect: ["おはよう", "おやすみ", "記念日", "誕生日", "周年", "定型"],
+                fields: [
+                    { id: "occasion", label: "きっかけ/記念日", type: "text", placeholder: "例: アモナ誕生日 / 放送開始1周年" },
+                    { id: "message_tone", label: "メッセージのトーン", type: "select", options: ["公式（丁寧）", "キャラクター風", "カジュアル", "お祝い"] },
+                ]
+            }
+        };
+
+        function detectTaskTemplate(taskTitle, details, category) {
+            // カテゴリとタイトルからテンプレートを推定
+            const text = (taskTitle + " " + details.join(" ")).toLowerCase();
+
+            // キャンペーン系を先にチェック（詳細な判定）
+            for (const key of ["キャンペーン_プレゼント", "キャンペーン_参加型"]) {
+                if (TASK_TEMPLATES[key].detect.some(kw => text.includes(kw.toLowerCase()))) return key;
+            }
+
+            // 放送連動
+            if (TASK_TEMPLATES["放送連動"].detect.some(kw => text.includes(kw.toLowerCase()))) return "放送連動";
+
+            // イベント
+            if (category === "イベント" || TASK_TEMPLATES["イベント告知"].detect.some(kw => text.includes(kw.toLowerCase()))) return "イベント告知";
+
+            // コラボ/グッズ
+            if (TASK_TEMPLATES["コラボ_グッズ"].detect.some(kw => text.includes(kw.toLowerCase()))) return "コラボ_グッズ";
+
+            // 情報告知（デフォルト的）
+            if (TASK_TEMPLATES["情報告知"].detect.some(kw => text.includes(kw.toLowerCase()))) return "情報告知";
+
+            // カテゴリベースのフォールバック
+            if (category === "プレスリリース" || category === "制作物") return "情報告知";
+            if (category === "SNS更新") {
+                // SNS更新のデフォルトは情報告知
+                return "情報告知";
+            }
+
+            return "情報告知"; // 最終フォールバック
+        }
+
+        function renderTaskFields(templateKey, existingData) {
+            const container = document.getElementById("tweet-task-fields");
+            const tmpl = TASK_TEMPLATES[templateKey];
+            if (!tmpl) { container.innerHTML = ""; return; }
+
+            const data = existingData || {};
+            let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                <span style="font-size:11px;padding:2px 8px;background:#6366f1;color:#fff;border-radius:4px;">${tmpl.label}</span>
+                <select id="tweet-template-select" onchange="changeTaskTemplate(this.value)" style="font-size:11px;padding:2px 6px;background:#27272a;border:1px solid #3f3f46;border-radius:4px;color:#a1a1aa;">
+                    ${Object.entries(TASK_TEMPLATES).map(([k,v]) => `<option value="${k}" ${k===templateKey?'selected':''}>${v.label}</option>`).join("")}
+                </select>
+                <button onclick="aiAutoFillFields()" id="btn-autofill" style="font-size:11px;padding:3px 10px;background:#7c3aed;border:none;color:#fff;border-radius:4px;cursor:pointer;">✨ AIで自動入力</button>
+                <span id="autofill-status" style="font-size:10px;color:#a1a1aa;"></span>
+            </div>`;
+
+            tmpl.fields.forEach(f => {
+                const val = data[f.id] || "";
+                if (f.type === "text") {
+                    html += `<div class="form-group" style="margin-bottom:6px;">
+                        <label style="font-size:11px;color:#a1a1aa;">${f.label}</label>
+                        <input type="text" id="tf-${f.id}" value="${escapeHtml(val)}" placeholder="${f.placeholder || ''}" oninput="autoSaveTweet()" style="width:100%;padding:7px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                    </div>`;
+                } else if (f.type === "textarea") {
+                    html += `<div class="form-group" style="margin-bottom:6px;">
+                        <label style="font-size:11px;color:#a1a1aa;">${f.label}</label>
+                        <textarea id="tf-${f.id}" placeholder="${f.placeholder || ''}" oninput="autoSaveTweet()" style="width:100%;height:50px;padding:7px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;resize:vertical;">${escapeHtml(val)}</textarea>
+                    </div>`;
+                } else if (f.type === "select") {
+                    html += `<div class="form-group" style="margin-bottom:6px;">
+                        <label style="font-size:11px;color:#a1a1aa;">${f.label}</label>
+                        <select id="tf-${f.id}" onchange="autoSaveTweet()" style="width:100%;padding:7px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
+                            ${f.options.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join("")}
+                        </select>
+                    </div>`;
+                }
+            });
+            container.innerHTML = html;
+        }
+
+        async function aiAutoFillFields() {
+            const ctx = _currentTweetContext;
+            const templateKey = ctx._templateKey || "情報告知";
+            const tmpl = TASK_TEMPLATES[templateKey];
+            if (!tmpl) return;
+
+            const btn = document.getElementById("btn-autofill");
+            const status = document.getElementById("autofill-status");
+            btn.disabled = true;
+            btn.textContent = "⏳ 生成中...";
+            status.textContent = "";
+
+            // プロジェクトのコンテキストを収集
+            const projectId = document.getElementById("project-select").value;
+            const p = getProjects()[projectId];
+            const extracted = p?.extracted || {};
+            const projectInfo = [
+                `作品名: ${extracted.title || p?.name || ""}`,
+                extracted.hashtags ? `ハッシュタグ: ${extracted.hashtags}` : "",
+                extracted.official_url ? `公式サイト: ${extracted.official_url}` : "",
+                extracted.official_x ? `公式X: ${extracted.official_x}` : "",
+                extracted.broadcast_info ? `放送情報: ${extracted.broadcast_info}` : "",
+                extracted.staff ? `スタッフ: ${extracted.staff}` : "",
+                extracted.cast ? `キャスト: ${extracted.cast}` : "",
+            ].filter(Boolean).join("\n");
+
+            // 入力済みフィールドの情報
+            const existing = collectTaskFieldData();
+            const existingText = Object.entries(existing).filter(([k,v]) => v).map(([k,v]) => `${k}: ${v}`).join("\n");
+
+            // フィールド定義
+            const fieldDefs = tmpl.fields.map(f => {
+                const opts = f.options ? ` (選択肢: ${f.options.join(", ")})` : "";
+                return `- ${f.id}: ${f.label}${opts} ${f.placeholder ? `[例: ${f.placeholder.replace("例: ","")}]` : ""}`;
+            }).join("\n");
+
+            const prompt = `あなたはアニメ宣伝のプロフェッショナルです。以下の施策のフォームを埋めてください。
+
+## 作品情報
+${projectInfo}
+
+## 施策
+タイプ: ${tmpl.label}
+タイトル: ${ctx.taskTitle}
+詳細: ${ctx.details.join(", ")}
+
+## 既に入力されているフィールド
+${existingText || "(なし)"}
+
+## 埋めるべきフィールド
+${fieldDefs}
+
+## ルール
+- JSON形式で返すこと: {"field_id": "value", ...}
+- 既に入力されているフィールドは上書きしない
+- 作品情報や施策内容から推測できる情報を埋める
+- 推測できないフィールドは空文字 "" にする
+- select型のフィールドは選択肢の中から選ぶこと
+- 日本語で回答すること
+- JSONのみ返すこと（説明不要）`;
+
+            try {
+                const resp = await fetch("/api/ai_fill", {
+                    method: "POST",
+                    headers: { ...authHeaders(), "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt })
+                });
+                const data = await resp.json();
+                if (data.fields) {
+                    let filled = 0;
+                    Object.entries(data.fields).forEach(([id, val]) => {
+                        if (!val) return;
+                        const el = document.getElementById("tf-" + id);
+                        if (el && !el.value) {
+                            el.value = val;
+                            filled++;
+                        }
+                    });
+                    status.textContent = `✓ ${filled}件を自動入力`;
+                    status.style.color = "#4ade80";
+                    autoSaveTweet();
+                } else {
+                    status.textContent = data.error || "入力できませんでした";
+                    status.style.color = "#ef4444";
+                }
+            } catch(e) {
+                console.error("AI autofill error:", e);
+                status.textContent = "エラー: " + e.message;
+                status.style.color = "#ef4444";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "✨ AIで自動入力";
+                setTimeout(() => { status.textContent = ""; }, 5000);
+            }
+        }
+
+        function changeTaskTemplate(newKey) {
+            _currentTweetContext._templateKey = newKey;
+            renderTaskFields(newKey, collectTaskFieldData());
+        }
+
+        function collectTaskFieldData() {
+            const data = {};
+            document.querySelectorAll("#tweet-task-fields [id^='tf-']").forEach(el => {
+                data[el.id.replace("tf-", "")] = el.value;
+            });
+            return data;
+        }
+
+        // ===== ツイートエディター =====
+        let _currentTweetContext = {};
+        let _tweetImages = [];
+
+        function showTweetEditor(ctx) {
+            _currentTweetContext = ctx;
+            _tweetImages = [];
+            document.getElementById("tweet-editor-panel").style.display = "";
+            document.getElementById("legacy-content-form").style.display = "none";
+            document.getElementById("tweet-editor-title").textContent = `ツイート編集: ${ctx.taskTitle}`;
+
+            // 日付設定
+            if (ctx.date && ctx.date !== "日付未定") {
+                const d = ctx.date.replace(/\//g, '-');
+                document.getElementById("tweet-post-date").value = d;
+            } else {
+                document.getElementById("tweet-post-date").value = "";
+            }
+            document.getElementById("tweet-post-time").value = "12:00";
+
+            // 施策タイプを検出してテンプレートを表示
+            const templateKey = detectTaskTemplate(ctx.taskTitle, ctx.details, ctx.category);
+            ctx._templateKey = templateKey;
+
+            // ハッシュタグ・URL
+            document.getElementById("tweet-hashtags").value = ctx.hashtags || "";
+            document.getElementById("tweet-url").value = ctx.url || "";
+            document.getElementById("tweet-memo").value = "";
+
+            // 既存の下書きがあれば復元
+            const projectId = document.getElementById("project-select").value;
+            const taskVal = document.getElementById("task-select").value;
+            const existingDraft = getProjects()[projectId]?.tweetDrafts?.[taskVal];
+            if (existingDraft) {
+                document.getElementById("tweet-post-date").value = existingDraft.postDate || "";
+                document.getElementById("tweet-post-time").value = existingDraft.postTime || "12:00";
+                document.getElementById("tweet-memo").value = existingDraft.memo || "";
+                document.getElementById("tweet-body").value = existingDraft.body || "";
+                document.getElementById("tweet-hashtags").value = existingDraft.hashtags || ctx.hashtags || "";
+                document.getElementById("tweet-url").value = existingDraft.url || ctx.url || "";
+                document.getElementById("tweet-status-select").value = existingDraft.status || "draft";
+                renderTaskFields(existingDraft._templateKey || templateKey, existingDraft.taskFields || {});
+            } else {
+                document.getElementById("tweet-body").value = "";
+                document.getElementById("tweet-status-select").value = "draft";
+                // 初期値をタイムラインデータから推定
+                const initData = {};
+                if (ctx.taskTitle) initData.announce_content = ctx.taskTitle;
+                if (ctx.details.length) initData.announce_detail = ctx.details.join("\n");
+                renderTaskFields(templateKey, initData);
+            }
+            document.getElementById("tweet-images-preview").innerHTML = "";
+            updateTweetCharCount();
+            updateTweetStatusBadge();
+        }
+
+        function updateTweetCharCount() {
+            const body = document.getElementById("tweet-body").value;
+            const count = body.length;
+            const el = document.getElementById("tweet-char-count");
+            el.textContent = `${count} / 280`;
+            el.style.color = count > 280 ? "#ef4444" : count > 250 ? "#f59e0b" : "#a1a1aa";
+        }
+
+        function updateTweetStatusBadge() {
+            const status = document.getElementById("tweet-status-select").value;
+            const badge = document.getElementById("tweet-editor-status");
+            const map = {
+                draft: { text: "下書き", bg: "#27272a", color: "#a1a1aa" },
+                pending: { text: "承認待ち", bg: "#92400e", color: "#fbbf24" },
+                approved: { text: "承認済み", bg: "#14532d", color: "#4ade80" },
+                posted: { text: "投稿済み", bg: "#1e3a5f", color: "#60a5fa" }
+            };
+            const m = map[status] || map.draft;
+            badge.textContent = m.text;
+            badge.style.background = m.bg;
+            badge.style.color = m.color;
+        }
+
+        function handleTweetImages(input) {
+            const files = Array.from(input.files);
+            const preview = document.getElementById("tweet-images-preview");
+            files.forEach(file => {
+                if (_tweetImages.length >= 4) return; // Xは最大4枚
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    _tweetImages.push({ name: file.name, dataUrl: e.target.result });
+                    const imgWrap = document.createElement("div");
+                    imgWrap.style.cssText = "position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;";
+                    imgWrap.innerHTML = `
+                        <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">
+                        <button onclick="removeTweetImage(${_tweetImages.length-1}, this.parentElement)" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;line-height:18px;">×</button>
+                    `;
+                    preview.appendChild(imgWrap);
+                };
+                reader.readAsDataURL(file);
+            });
+            input.value = "";
+        }
+
+        function removeTweetImage(idx, el) {
+            _tweetImages.splice(idx, 1);
+            el.remove();
+        }
+
+        async function aiGenerateTweet() {
+            const ctx = _currentTweetContext;
+            const memo = document.getElementById("tweet-memo").value;
+            const hashtags = document.getElementById("tweet-hashtags").value;
+            const url = document.getElementById("tweet-url").value;
+            const loading = document.getElementById("tweet-ai-loading");
+            loading.style.display = "";
+
+            try {
+                // テンプレートフィールドを収集してkey_infoに統合
+                const taskFields = collectTaskFieldData();
+                const fieldTexts = Object.entries(taskFields).filter(([k,v]) => v).map(([k,v]) => `${k}: ${v}`);
+                const fullInfo = [...fieldTexts, memo].filter(Boolean).join("\n");
+
+                const body = {
+                    content_type: "tweet",
+                    form_data: {
+                        title: ctx.projectName,
+                        announce_type: ctx.category,
+                        key_info: fullInfo,
+                        hashtag: hashtags,
+                        url: url,
+                        tone: "公式"
+                    }
+                };
+                const response = await fetch("/api/content_generate", {
+                    method: "POST",
+                    headers: { ...authHeaders(), "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+
+                if (response.headers.get("content-type")?.includes("text/event-stream")) {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let text = "";
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value);
+                        for (const line of chunk.split("\n")) {
+                            if (line.startsWith("data: ")) {
+                                try {
+                                    const d = JSON.parse(line.slice(6));
+                                    if (d.token) text += d.token;
+                                    if (d.full_text) text = d.full_text;
+                                } catch(e) {}
+                            }
+                        }
+                        document.getElementById("tweet-body").value = text;
+                        updateTweetCharCount();
+                    }
+                } else {
+                    const data = await response.json();
+                    document.getElementById("tweet-body").value = data.content || data.error || "生成失敗";
+                    updateTweetCharCount();
+                }
+            } catch(e) {
+                console.error("AI generate error:", e);
+                alert("AI生成に失敗しました: " + e.message);
+            } finally {
+                loading.style.display = "none";
+            }
+        }
+
+        let _autoSaveTimer = null;
+        function saveTweetDraft(manual) {
+            const projectId = document.getElementById("project-select").value;
+            const taskVal = document.getElementById("task-select").value;
+            if (!projectId || !taskVal) { if (manual) alert("プロジェクトと施策を選択してください"); return; }
+
+            const draft = {
+                taskRef: taskVal,
+                _templateKey: _currentTweetContext._templateKey || "",
+                taskFields: collectTaskFieldData(),
+                postDate: document.getElementById("tweet-post-date").value,
+                postTime: document.getElementById("tweet-post-time").value,
+                memo: document.getElementById("tweet-memo").value,
+                body: document.getElementById("tweet-body").value,
+                hashtags: document.getElementById("tweet-hashtags").value,
+                url: document.getElementById("tweet-url").value,
+                status: document.getElementById("tweet-status-select").value,
+                images: _tweetImages.map(i => i.name),
+                updatedAt: new Date().toISOString()
+            };
+
+            const p = getProjects()[projectId];
+            if (!p.tweetDrafts) p.tweetDrafts = {};
+            p.tweetDrafts[taskVal] = draft;
+            saveProject(projectId, p);
+            if (manual) {
+                const btn = document.querySelector('#tweet-editor-panel [onclick*="saveTweetDraft"]');
+                if (btn) { btn.textContent = "✓ 保存済み"; setTimeout(() => btn.textContent = "保存", 1500); }
+            }
+        }
+
+        function autoSaveTweet() {
+            clearTimeout(_autoSaveTimer);
+            _autoSaveTimer = setTimeout(() => saveTweetDraft(false), 1000);
         }
 
         function toggleProjectDetail(id) {
@@ -1856,6 +3648,280 @@
             if (showingRaw) { preview.style.display = "none"; raw.classList.add("active"); btn.textContent = "プレビューに戻す"; }
             else { preview.style.display = "block"; raw.classList.remove("active"); btn.textContent = "Markdown原文を表示"; }
         }
+
+        // ===== プロジェクト共有機能 =====
+        let _currentShareProjectId = null;
+        let _sharedProjectsCache = [];
+
+        function openShareModal(projectId) {
+            _currentShareProjectId = projectId;
+            const projects = getProjects();
+            const p = projects[projectId];
+            document.getElementById("share-modal-title").textContent = `「${p?.name || projectId}」を共有`;
+            document.getElementById("share-email").value = "";
+            document.getElementById("share-role").value = "editor";
+            document.getElementById("share-modal").classList.remove("hidden");
+            loadShareMembers(projectId);
+        }
+
+        function closeShareModal() {
+            document.getElementById("share-modal").classList.add("hidden");
+            _currentShareProjectId = null;
+        }
+
+        async function sendShareInvite() {
+            const email = document.getElementById("share-email").value.trim().toLowerCase();
+            const role = document.getElementById("share-role").value;
+            const projectId = _currentShareProjectId;
+            if (!email || !projectId) { alert("メールアドレスを入力してください"); return; }
+
+            const user = firebaseAuth.currentUser;
+            if (!user) { alert("ログインが必要です"); return; }
+
+            if (email === user.email.toLowerCase()) { alert("自分自身には共有できません"); return; }
+
+            // 既に共有されているかチェック
+            try {
+                const existing = await db.collection("shares")
+                    .where("projectId", "==", projectId)
+                    .where("ownerUid", "==", user.uid)
+                    .where("sharedWith", "==", email)
+                    .get();
+                if (!existing.empty) { alert("既にこのユーザーと共有されています"); return; }
+            } catch(e) { console.warn("[Share] Duplicate check failed:", e); }
+
+            const shareData = {
+                projectId: projectId,
+                ownerUid: user.uid,
+                ownerEmail: user.email,
+                sharedWith: email,
+                sharedWithUid: "",
+                role: role,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection("shares").add(shareData);
+                // プロジェクトドキュメントにもsharedWithEmailsを追加（Firestoreルール用）
+                await db.collection("users").doc(user.uid).collection("projects").doc(projectId)
+                    .update({ sharedWithEmails: firebase.firestore.FieldValue.arrayUnion(email) });
+                console.log("[Share] Invitation created for", email);
+                document.getElementById("share-email").value = "";
+                loadShareMembers(projectId);
+            } catch(err) {
+                console.error("[Share] Error:", err);
+                alert("共有の作成に失敗しました: " + err.message);
+            }
+        }
+
+        async function loadShareMembers(projectId) {
+            const list = document.getElementById("share-members-list");
+            const user = firebaseAuth.currentUser;
+            if (!user) { list.innerHTML = '<p style="color:#52525b;font-size:13px;">ログインが必要です</p>'; return; }
+
+            list.innerHTML = '<p style="color:#52525b;font-size:13px;">読み込み中...</p>';
+
+            try {
+                const snapshot = await db.collection("shares")
+                    .where("projectId", "==", projectId)
+                    .where("ownerUid", "==", user.uid)
+                    .get();
+
+                if (snapshot.empty) {
+                    list.innerHTML = '<p style="color:#52525b;font-size:13px;">まだ誰とも共有されていません</p>';
+                    return;
+                }
+
+                list.innerHTML = snapshot.docs.map(doc => {
+                    const s = doc.data();
+                    const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
+                    const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
+                    return `<div class="share-item">
+                        <div class="share-item-info">
+                            <span class="share-item-email">${escapeHtml(s.sharedWith)}</span>
+                            <span class="share-item-role ${roleClass}">${roleLabel}</span>
+                        </div>
+                        <button class="share-item-remove" onclick="removeShare('${doc.id}', '${escapeHtml(projectId)}')">&times;</button>
+                    </div>`;
+                }).join("");
+            } catch(err) {
+                console.error("[Share] Load members error:", err);
+                list.innerHTML = '<p style="color:#ef4444;font-size:13px;">読み込みに失敗しました</p>';
+            }
+        }
+
+        async function removeShare(shareId, projectId) {
+            if (!confirm("この共有を解除しますか？")) return;
+            try {
+                // 共有ドキュメントからメールを取得してからsharedWithEmailsからも削除
+                const shareDoc = await db.collection("shares").doc(shareId).get();
+                const shareData = shareDoc.data();
+                await db.collection("shares").doc(shareId).delete();
+                if (shareData && shareData.sharedWith) {
+                    const user = firebaseAuth.currentUser;
+                    if (user) {
+                        await db.collection("users").doc(user.uid).collection("projects").doc(projectId)
+                            .update({ sharedWithEmails: firebase.firestore.FieldValue.arrayRemove(shareData.sharedWith) });
+                    }
+                }
+                console.log("[Share] Removed:", shareId);
+                loadShareMembers(projectId);
+            } catch(err) {
+                console.error("[Share] Remove error:", err);
+                alert("共有の解除に失敗しました");
+            }
+        }
+
+        // 共有されたプロジェクトを読み込み
+        async function loadSharedProjects() {
+            const user = firebaseAuth.currentUser;
+            if (!user || !user.email) return;
+
+            const section = document.getElementById("shared-projects-section");
+            const list = document.getElementById("shared-project-list");
+
+            try {
+                const snapshot = await db.collection("shares")
+                    .where("sharedWith", "==", user.email.toLowerCase())
+                    .get();
+
+                if (snapshot.empty) {
+                    section.style.display = "none";
+                    _sharedProjectsCache = [];
+                    return;
+                }
+
+                // sharedWithUidが空なら自分のuidを埋める
+                for (const doc of snapshot.docs) {
+                    const data = doc.data();
+                    if (!data.sharedWithUid && data.sharedWith === user.email.toLowerCase()) {
+                        db.collection("shares").doc(doc.id).update({ sharedWithUid: user.uid })
+                            .catch(e => console.warn("[Share] Could not update sharedWithUid:", e));
+                    }
+                }
+
+                // 各共有プロジェクトのデータを取得
+                const sharedItems = [];
+                for (const doc of snapshot.docs) {
+                    const share = doc.data();
+                    share._shareId = doc.id;
+                    try {
+                        const projDoc = await db.collection("users").doc(share.ownerUid)
+                            .collection("projects").doc(share.projectId).get();
+                        if (projDoc.exists) {
+                            share._projectData = restoreFromFirestore(projDoc.data());
+                            sharedItems.push(share);
+                        }
+                    } catch(e) {
+                        console.warn("[Share] Could not load shared project:", share.projectId, e);
+                    }
+                }
+
+                _sharedProjectsCache = sharedItems;
+
+                if (sharedItems.length === 0) {
+                    section.style.display = "none";
+                    return;
+                }
+
+                section.style.display = "block";
+                list.innerHTML = sharedItems.map(s => {
+                    const p = s._projectData;
+                    const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
+                    const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
+                    return `<div class="project-card">
+                        <div class="project-card-header">
+                            <div class="project-card-title">
+                                ${escapeHtml(p.name || s.projectId)}
+                                <span class="shared-badge ${roleClass}">${roleLabel}</span>
+                                <span class="shared-badge-owner">by ${escapeHtml(s.ownerEmail)}</span>
+                            </div>
+                        </div>
+                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
+                    </div>`;
+                }).join("");
+
+            } catch(err) {
+                console.error("[Share] Load shared projects error:", err);
+            }
+        }
+
+        // ===== プロフィール機能 =====
+
+        // ログイン時にプロフィールを自動保存
+        function saveUserProfile() {
+            const user = firebaseAuth.currentUser;
+            if (!user) return;
+
+            const profileData = {
+                displayName: user.displayName || "",
+                email: user.email || "",
+                photoURL: user.photoURL || "",
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection("user_profiles").doc(user.uid).set(profileData, { merge: true })
+                .then(() => console.log("[Profile] Saved"))
+                .catch(err => console.warn("[Profile] Save error:", err));
+        }
+
+        function openProfileModal() {
+            const user = firebaseAuth.currentUser;
+            const saved = JSON.parse(localStorage.getItem("anime_pr_user") || "{}");
+
+            const name = user?.displayName || saved.name || "---";
+            const email = user?.email || saved.email || "---";
+            const photo = user?.photoURL || saved.picture || "";
+
+            document.getElementById("profile-name").textContent = name;
+            document.getElementById("profile-email").textContent = email;
+            document.getElementById("profile-avatar").src = photo;
+
+            // 自分のプロジェクト一覧
+            const projects = getProjects();
+            const myProjectsEl = document.getElementById("profile-my-projects");
+            const keys = Object.keys(projects);
+            if (keys.length === 0) {
+                myProjectsEl.innerHTML = '<p style="color:#52525b;font-size:13px;">プロジェクトはありません</p>';
+            } else {
+                myProjectsEl.innerHTML = keys.map(id => {
+                    const p = projects[id];
+                    return `<div class="profile-project-item">
+                        <span>${escapeHtml(p.name)}</span>
+                        <span style="color:#52525b;font-size:11px;">${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : ''}</span>
+                    </div>`;
+                }).join("");
+            }
+
+            // 共有されたプロジェクト一覧
+            const sharedEl = document.getElementById("profile-shared-projects");
+            if (_sharedProjectsCache.length === 0) {
+                sharedEl.innerHTML = '<p style="color:#52525b;font-size:13px;">共有されたプロジェクトはありません</p>';
+            } else {
+                sharedEl.innerHTML = _sharedProjectsCache.map(s => {
+                    const p = s._projectData;
+                    const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
+                    const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
+                    return `<div class="profile-project-item">
+                        <span>${escapeHtml(p.name || s.projectId)} <span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span></span>
+                        <span style="color:#52525b;font-size:11px;">by ${escapeHtml(s.ownerEmail)}</span>
+                    </div>`;
+                }).join("");
+            }
+
+            document.getElementById("profile-modal").classList.remove("hidden");
+        }
+
+        function closeProfileModal() {
+            document.getElementById("profile-modal").classList.add("hidden");
+        }
+
+        // モーダル外クリックで閉じる
+        document.addEventListener("click", function(e) {
+            if (e.target.classList.contains("modal-overlay")) {
+                e.target.classList.add("hidden");
+            }
+        });
     </script>
 </body>
 </html>

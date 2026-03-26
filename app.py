@@ -719,6 +719,7 @@ def api_structure_doc():
     data = request.get_json()
     doc_type = data.get("doc_type", "")
     content = data.get("content", "")
+    instructions = data.get("instructions", "")
 
     if doc_type not in ("timeline", "text_master", "budget"):
         return json.dumps({"error": "無効なdoc_typeです"}), 400
@@ -727,19 +728,20 @@ def api_structure_doc():
 
     try:
         if doc_type in ("text_master", "budget"):
-            # CSV→直接パース（AI不要・超高速）
             t1 = time.time()
             parsed = parse_csv_to_table(content)
             log(f"[TIMING] structure_doc {doc_type} direct_parse: {time.time()-t1:.3f}s")
             log(f"[TIMING] structure_doc {doc_type} TOTAL: {time.time()-t0:.3f}s")
             return json.dumps({"structured": parsed}, ensure_ascii=False)
         else:
-            # timeline はGemini使用
             api_key = os.environ.get("GEMINI_API_KEY", "")
             if not api_key:
                 return json.dumps({"error": "GEMINI_API_KEY が設定されていません"}), 500
 
             prompt = build_individual_prompt(doc_type, content)
+            if instructions:
+                prompt += f"\n\n## ユーザーからの追加指示（必ず従うこと）\n{instructions}"
+                log(f"[structure_doc] Extra instructions: {instructions}")
             log(f"[TIMING] structure_doc {doc_type} prompt_len={len(prompt)}")
 
             t2 = time.time()
@@ -760,6 +762,33 @@ def api_structure_doc():
     except Exception as e:
         log(f"structure_doc error: {e}")
         return json.dumps({"error": f"構造化エラー: {str(e)}"}), 500
+
+
+# ===== AI自動入力 =====
+
+@app.route("/api/ai_fill", methods=["POST"])
+def api_ai_fill():
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+
+    data = request.get_json()
+    prompt = data.get("prompt", "")
+    if not prompt:
+        return json.dumps({"error": "promptが空です"}), 400
+
+    try:
+        client = get_gemini_client()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+        text = response.text.strip()
+        parsed = extract_json_from_response(text)
+        return json.dumps({"fields": parsed}, ensure_ascii=False)
+    except Exception as e:
+        log(f"ai_fill error: {e}")
+        return json.dumps({"error": str(e)}), 500
 
 
 # ===== メタ情報抽出 =====
@@ -798,6 +827,246 @@ def api_extract_meta():
     except Exception as e:
         log(f"extract_meta error: {e}")
         return json.dumps({"extracted": {"title": "", "hashtags": "", "official_url": "", "official_x": ""}}, ensure_ascii=False)
+
+
+# ===== ガントチャートxlsx生成 =====
+
+@app.route("/api/generate_gantt", methods=["POST"])
+def api_generate_gantt():
+    """タイムラインデータからガントチャートxlsxを生成"""
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from flask import send_file
+
+    auth_error = require_auth(request)
+    if auth_error:
+        return json.dumps(auth_error[0], ensure_ascii=False), auth_error[1]
+
+    data = request.get_json()
+    title = data.get("title", "作品名未設定")
+    timeline = data.get("timeline", [])  # [{date, title, category, items:[{text, children}]}]
+
+    if not timeline:
+        return json.dumps({"error": "タイムラインデータがありません"}), 400
+
+    # --- 月の範囲を算出 ---
+    import re as re_mod
+    from datetime import datetime as dt_cls
+
+    # タイムラインの日付からstart/endを推定
+    dates = []
+    for entry in timeline:
+        d = entry.get("date", "")
+        m = re_mod.match(r'(\d{1,2})/(\d{1,2})', d)
+        if m:
+            month = int(m.group(1))
+            dates.append(month)
+
+    if not dates:
+        # デフォルト: 現在月から18ヶ月
+        now = dt_cls.now()
+        start_month = now.month
+        start_year = now.year
+    else:
+        start_month = min(dates)
+        start_year = dt_cls.now().year
+
+    # 24ヶ月分のカラムを生成
+    TOTAL_MONTHS = 24
+    months = []
+    y, m = start_year, start_month
+    for _ in range(TOTAL_MONTHS):
+        months.append((y, m))
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+
+    # --- カテゴリ別にイベントを分類 ---
+    CATEGORIES = ["プレスリリース", "WEB/HP", "イベント", "SNS更新", "制作物", "アニメ制作", "MTG", "その他"]
+    CATEGORY_MAP = {
+        "プレスリリース": "プレスリリース",
+        "アニメ制作": "アニメ制作",
+        "MTG": "MTG",
+        "SNS更新": "SNS更新",
+        "イベント": "イベント",
+        "WEB/HP": "WEB/HP",
+        "制作物": "制作物",
+        # 旧名互換
+        "制作進行": "アニメ制作",
+        "X更新": "SNS更新",
+        "Web/HP": "WEB/HP",
+        "PV/映像": "制作物",
+    }
+
+    cat_events = {c: [] for c in CATEGORIES}
+    for entry in timeline:
+        d = entry.get("date", "")
+        cat = entry.get("category", "その他")
+        mapped = CATEGORY_MAP.get(cat, cat)
+        if mapped not in cat_events:
+            mapped = "その他"
+
+        event_title = entry.get("title", "")
+        items = entry.get("items", [])
+        items_text = [it.get("text", "") for it in items]
+
+        m_match = re_mod.match(r'(\d{1,2})/(\d{1,2})', d)
+        month = int(m_match.group(1)) if m_match else None
+        day = int(m_match.group(2)) if m_match else None
+        week = min((day - 1) // 7, 3) if day else 0
+
+        cat_events[mapped].append({
+            "month": month,
+            "week": week,
+            "title": event_title,
+            "items": items_text,
+        })
+
+    # --- Excelワークブック生成 ---
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "宣伝スケジュール"
+
+    # スタイル定義
+    header_font = Font(bold=True, size=11)
+    title_font = Font(bold=True, size=14)
+    week_font = Font(size=9)
+    cat_font = Font(bold=True, size=10)
+    event_font = Font(size=9)
+
+    month_fill = PatternFill("solid", fgColor="1F4E79")
+    month_font = Font(bold=True, color="FFFFFF", size=10)
+    week_fill = PatternFill("solid", fgColor="000000")
+    week_font_white = Font(color="FFFFFF", size=9)
+
+    cat_fills = {
+        "情報解禁": PatternFill("solid", fgColor="F4CCCC"),
+        "公式WEBサイト": PatternFill("solid", fgColor="D9EAD3"),
+        "イベント": PatternFill("solid", fgColor="CFE2F3"),
+        "SNS": PatternFill("solid", fgColor="FCE5CD"),
+        "X": PatternFill("solid", fgColor="D9D2E9"),
+        "その他": PatternFill("solid", fgColor="EFEFEF"),
+    }
+
+    thin_border = Border(
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+        bottom=Side(style='thin', color='CCCCCC'),
+    )
+
+    # 列A: 実施項目（幅広め）
+    ws.column_dimensions['A'].width = 16
+
+    # Row 1: タイトル
+    ws.cell(row=1, column=1, value=f'TVアニメ「{title}」宣伝スケジュール').font = title_font
+
+    # Row 2: 空行
+
+    # Row 3: 年ヘッダー
+    col = 2
+    prev_year = None
+    for y, m in months:
+        if y != prev_year:
+            ws.cell(row=3, column=col, value=f"{y}年").font = Font(bold=True)
+            prev_year = y
+        col += 4  # 各月4週
+
+    # Row 4: 月ヘッダー
+    col = 2
+    for y, m in months:
+        cell = ws.cell(row=4, column=col, value=f"{m}月")
+        cell.font = month_font
+        cell.fill = month_fill
+        cell.alignment = Alignment(horizontal='center')
+        # 4列分マージ
+        ws.merge_cells(start_row=4, start_column=col, end_row=4, end_column=col+3)
+        col += 4
+
+    # Row 5: 週ヘッダー (1W-4W)
+    col = 2
+    for _ in months:
+        for w in range(1, 5):
+            cell = ws.cell(row=5, column=col, value=f"{w}W")
+            cell.font = week_font_white
+            cell.fill = week_fill
+            cell.alignment = Alignment(horizontal='center')
+            ws.column_dimensions[get_column_letter(col)].width = 4
+            col += 1
+
+    # Row 6: 狙い (空、後で手動追加可能)
+    ws.cell(row=6, column=1, value="狙い").font = Font(bold=True)
+
+    # --- カテゴリ行を配置 ---
+    current_row = 7
+    for cat_name in CATEGORIES:
+        events = cat_events.get(cat_name, [])
+
+        # カテゴリヘッダー行
+        cat_cell = ws.cell(row=current_row, column=1, value=cat_name)
+        cat_cell.font = cat_font
+        fill = cat_fills.get(cat_name, PatternFill("solid", fgColor="EFEFEF"))
+
+        # カテゴリ行全体に背景色
+        for c in range(1, 2 + len(months) * 4):
+            ws.cell(row=current_row, column=c).fill = fill
+
+        current_row += 1
+
+        # イベントを配置
+        if not events:
+            current_row += 1  # 空行
+            continue
+
+        # 月+週ごとにグループ化
+        placed = {}  # (month, week) -> [event_texts]
+        for ev in events:
+            key = (ev["month"], ev["week"])
+            text = f"・{ev['title']}"
+            if ev["items"]:
+                for item in ev["items"][:2]:  # 最大2項目
+                    text += f"\n  - {item}"
+            if key not in placed:
+                placed[key] = []
+            placed[key].append(text)
+
+        # 最大行数を計算
+        max_items_in_row = max((len(v) for v in placed.values()), default=0)
+        rows_needed = max(max_items_in_row, 1)
+
+        for offset in range(rows_needed):
+            for (month, week), texts in placed.items():
+                if offset >= len(texts):
+                    continue
+                # 月のインデックスを見つける
+                for mi, (y, m) in enumerate(months):
+                    if m == month:
+                        col_idx = 2 + mi * 4 + week
+                        cell = ws.cell(row=current_row + offset, column=col_idx, value=texts[offset])
+                        cell.font = event_font
+                        cell.alignment = Alignment(wrap_text=True, vertical='top')
+                        break
+
+        current_row += rows_needed + 1  # 空行を挟む
+
+    # ウィンドウ枠を固定（A列と月/週ヘッダー）
+    ws.freeze_panes = "B6"
+
+    # --- 出力 ---
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"{title}_宣伝スケジュール.xlsx"
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 if __name__ == "__main__":
