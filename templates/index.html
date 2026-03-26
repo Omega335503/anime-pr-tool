@@ -898,12 +898,8 @@
                 </div>
             </div>
             <div class="profile-section">
-                <div class="profile-section-title">自分のプロジェクト</div>
-                <div id="profile-my-projects"></div>
-            </div>
-            <div class="profile-section">
-                <div class="profile-section-title">共有されたプロジェクト</div>
-                <div id="profile-shared-projects"></div>
+                <div class="profile-section-title">プロジェクト</div>
+                <div id="profile-all-projects"></div>
             </div>
             <div class="profile-section">
                 <div class="profile-section-title" style="display:flex;justify-content:space-between;align-items:center;">
@@ -4181,37 +4177,29 @@ ${fieldDefs}
             `;
             profileHeaderDiv.insertAdjacentElement("afterend", editHtml);
 
-            // 自分のプロジェクト一覧
+            // プロジェクト一覧（自分 + 共有を統合）
             const projects = getProjects();
-            const myProjectsEl = document.getElementById("profile-my-projects");
-            const keys = Object.keys(projects);
-            if (keys.length === 0) {
-                myProjectsEl.innerHTML = '<p style="color:#52525b;font-size:13px;">プロジェクトはありません</p>';
-            } else {
-                myProjectsEl.innerHTML = keys.map(id => {
-                    const p = projects[id];
-                    return `<div class="profile-project-item">
-                        <span>${escapeHtml(p.name)}</span>
-                        <span style="color:#52525b;font-size:11px;">${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : ''}</span>
-                    </div>`;
-                }).join("");
-            }
-
-            // 共有されたプロジェクト一覧
-            const sharedEl = document.getElementById("profile-shared-projects");
-            if (_sharedProjectsCache.length === 0) {
-                sharedEl.innerHTML = '<p style="color:#52525b;font-size:13px;">共有されたプロジェクトはありません</p>';
-            } else {
-                sharedEl.innerHTML = _sharedProjectsCache.map(s => {
-                    const p = s._projectData;
-                    const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
-                    const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
-                    return `<div class="profile-project-item">
-                        <span>${escapeHtml(p.name || s.projectId)} <span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span></span>
-                        <span style="color:#52525b;font-size:11px;">by ${escapeHtml(s.ownerEmail)}</span>
-                    </div>`;
-                }).join("");
-            }
+            const allProjectsEl = document.getElementById("profile-all-projects");
+            let allHtml = "";
+            // 自分のプロジェクト
+            Object.keys(projects).forEach(id => {
+                const p = projects[id];
+                allHtml += `<div class="profile-project-item">
+                    <span>${escapeHtml(p.name)}</span>
+                    <span style="color:#52525b;font-size:11px;">${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : ''}</span>
+                </div>`;
+            });
+            // 共有されたプロジェクト
+            _sharedProjectsCache.forEach(s => {
+                const p = s._projectData;
+                const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
+                const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
+                allHtml += `<div class="profile-project-item">
+                    <span>${escapeHtml(p.name || s.projectId)} <span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span></span>
+                    <span style="color:#52525b;font-size:11px;">共有 · ${escapeHtml(s.ownerEmail)}</span>
+                </div>`;
+            });
+            allProjectsEl.innerHTML = allHtml || '<p style="color:#52525b;font-size:13px;">プロジェクトはありません</p>';
 
             document.getElementById("profile-modal").classList.remove("hidden");
             loadActivityLogs();
