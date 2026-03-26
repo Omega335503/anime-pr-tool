@@ -1782,7 +1782,7 @@
                                 <button class="delete" onclick="removeProjectUI('${id}')">削除</button>
                             </div>
                         </div>
-                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
+                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'} <span id="member-count-${id}"></span></div>
                         ${tags.length ? '<div class="project-card-tags">' + tags.map(t => `<span class="project-card-tag">${escapeHtml(t)}</span>`).join('') + '</div>' : ''}
                         <div class="project-detail" id="pdetail-${id}">
                             <div class="detail-tab-nav">${tabNav}</div>
@@ -1790,6 +1790,18 @@
                         </div>
                     </div>`;
                 }).join("");
+                // 各プロジェクトのメンバー数を非同期で取得して表示
+                keys.forEach(id => {
+                    db.collection("shares").where("projectId", "==", id).where("ownerUid", "==", firebaseAuth.currentUser.uid).get().then(snap => {
+                        const count = snap.size + 1;
+                        const el = document.getElementById("member-count-" + id);
+                        if (el && count > 1) {
+                            el.innerHTML = `<button onclick="event.stopPropagation(); showMembersPopup('${id}')" style="font-size:11px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:3px 10px;border-radius:6px;cursor:pointer;">👥 ${count}人</button>`;
+                            // メンバー情報もキャッシュ
+                            window['_sharedMembers_' + id] = { owner: firebaseAuth.currentUser.email, members: snap.docs.map(d => d.data()) };
+                        }
+                    }).catch(() => {});
+                });
             }
 
             // コンテンツ生成タブのプロジェクト選択を更新
@@ -4074,14 +4086,27 @@ ${fieldDefs}
                         </div>`;
                     }).join('');
 
+                    // タグ（オーナー側と同じ形式）
+                    const sharedTags = [];
+                    if (p.structured?.timeline) sharedTags.push("タイムラインあり");
+                    if (p.structured?.text_master) sharedTags.push("テキストマスターあり");
+                    if (p.structured?.budget) sharedTags.push("予算表あり");
+                    if (p.official_site_url) sharedTags.push("公式サイトあり");
+
+                    // 編集者は再抽出可能
+                    const sharedActions = isEditor ? `
+                        <div class="project-card-actions">
+                            <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
+                            <button onclick="showReExtractDialog('${id}')">再抽出</button>
+                        </div>` : '';
+
                     return `<div class="project-card" data-shared="true">
                         <div class="project-card-header">
-                            <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name || s.projectId)}
-                                <span class="shared-badge ${roleClass}">${roleLabel}</span>
-                                <span class="shared-badge-owner">by ${escapeHtml(s.ownerEmail)}</span>
-                            </div>
+                            <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name || s.projectId)}</div>
+                            ${sharedActions}
                         </div>
-                        <div class="project-card-meta" style="display:flex;align-items:center;gap:8px;">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'} ${memberBtnHtml}</div>
+                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}　<span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span> <span style="color:#52525b;font-size:11px;">by ${escapeHtml(s.ownerEmail)}</span> ${memberBtnHtml}</div>
+                        ${sharedTags.length ? '<div class="project-card-tags">' + sharedTags.map(t => `<span class="project-card-tag">${escapeHtml(t)}</span>`).join('') + '</div>' : ''}
                         <div class="project-detail" id="pdetail-${id}">
                             <div class="detail-tab-nav">${tabNav}</div>
                             ${tabContents}
