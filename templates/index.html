@@ -3965,17 +3965,49 @@ ${fieldDefs}
                 section.style.display = "block";
                 list.innerHTML = sharedItems.map(s => {
                     const p = s._projectData;
+                    const id = "shared_" + s.ownerUid + "_" + s.projectId;
                     const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
                     const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
+                    const isEditor = s.role === "editor";
+                    p._shared = true;
+                    p._shareRole = s.role;
+                    p._ownerUid = s.ownerUid;
+                    p._shareProjectId = s.projectId;
+                    _projectsCache[id] = p;
+
+                    // 自分のプロジェクトと同じタブ構造を生成
+                    const structured = p.structured || {};
+                    const docTabs = [
+                        { key: "timeline", label: "宣伝タイムライン" },
+                        { key: "text_master", label: "テキストマスター" },
+                        { key: "budget", label: "宣伝予算表" },
+                        { key: "gantt", label: "ガントチャート" },
+                        { key: "tweet_calendar", label: "発信カレンダー" }
+                    ].filter(t => t.key === "gantt" || t.key === "tweet_calendar" || structured[t.key]);
+
+                    const tabNav = docTabs.map((t, i) =>
+                        `<button class="detail-tab-btn ${i===0?'active':''}" onclick="switchDetailTab('${id}','${t.key}',this)">${t.label}</button>`
+                    ).join('');
+
+                    const tabContents = docTabs.map((t, i) => {
+                        const data = structured[t.key];
+                        return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-${t.key}" data-project-id="${id}" data-doc-type="${t.key}">
+                            ${renderStructuredContent(t.key, data, isEditor, id)}
+                        </div>`;
+                    }).join('');
+
                     return `<div class="project-card">
                         <div class="project-card-header">
-                            <div class="project-card-title">
-                                ${escapeHtml(p.name || s.projectId)}
+                            <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name || s.projectId)}
                                 <span class="shared-badge ${roleClass}">${roleLabel}</span>
                                 <span class="shared-badge-owner">by ${escapeHtml(s.ownerEmail)}</span>
                             </div>
                         </div>
                         <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}</div>
+                        <div class="project-detail" id="pdetail-${id}">
+                            <div class="detail-tab-nav">${tabNav}</div>
+                            ${tabContents}
+                        </div>
                     </div>`;
                 }).join("");
 
