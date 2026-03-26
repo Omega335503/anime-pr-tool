@@ -2675,25 +2675,34 @@
             };
             const CATEGORIES = ["プレスリリース", "WEB/HP", "イベント", "X更新", "SNS更新", "制作物", "アニメ制作", "MTG", "その他"];
 
-            const months_set = new Set();
-            timeline.forEach(e => { const m = e.date?.match(/^(\d{1,2})\//); if (m) months_set.add(parseInt(m[1])); });
+            // 日付パース: "YYYY/MM/DD", "YYYY-MM-DD", "M/D" 全対応
+            function parseGanttDate(dateStr) {
+                if (!dateStr) return null;
+                let m = dateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+                if (m) return { year: parseInt(m[1]), month: parseInt(m[2]), day: parseInt(m[3]) };
+                m = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})/);
+                if (m) return { year: new Date().getFullYear(), month: parseInt(m[1]), day: parseInt(m[2]) };
+                return null;
+            }
+
+            const dateInfos = timeline.map(e => parseGanttDate(e.date)).filter(Boolean);
             const now = new Date();
-            let startMonth = months_set.size ? Math.min(...months_set) : now.getMonth() + 1;
-            let startYear = now.getFullYear();
+            let startYear = dateInfos.length ? Math.min(...dateInfos.map(d => d.year)) : now.getFullYear();
+            let startMonth = dateInfos.length ? Math.min(...dateInfos.filter(d => d.year === startYear).map(d => d.month)) : now.getMonth() + 1;
             const months = [];
             let y = startYear, mo = startMonth;
             for (let i = 0; i < 18; i++) { months.push({ year: y, month: mo }); mo++; if (mo > 12) { mo = 1; y++; } }
 
-            // イベントをカテゴリ×月×週に分類（元のtimelineインデックスを保持）
+            // イベントをカテゴリ×月×週に分類
             const catEvents = {};
             CATEGORIES.forEach(c => catEvents[c] = {});
             timeline.forEach((entry, idx) => {
                 const cat = CAT_MAP[entry.category] || entry.category || "その他";
                 const target = CATEGORIES.includes(cat) ? cat : "その他";
-                const m = entry.date?.match(/^(\d{1,2})\/(\d{1,2})/);
-                if (!m) return;
-                const month = parseInt(m[1]), week = Math.min(Math.floor((parseInt(m[2]) - 1) / 7), 3);
-                const key = `${month}-${week}`;
+                const d = parseGanttDate(entry.date);
+                if (!d) return;
+                const week = Math.min(Math.floor((d.day - 1) / 7), 3);
+                const key = `${d.month}-${week}`;
                 if (!catEvents[target][key]) catEvents[target][key] = [];
                 catEvents[target][key].push({ text: entry.title || "", idx });
             });
