@@ -4163,23 +4163,23 @@ ${fieldDefs}
             // 編集フォーム
             const editArea = document.getElementById("profile-edit-area");
             if (editArea) editArea.remove();
-            const profileHeader = document.getElementById("profile-name").parentElement;
+            const profileHeaderDiv = document.querySelector("#profile-modal .profile-header");
             const editHtml = document.createElement("div");
             editHtml.id = "profile-edit-area";
-            editHtml.style.cssText = "margin-top:12px;padding:12px;background:#09090b;border-radius:8px;";
+            editHtml.style.cssText = "margin-bottom:20px;padding:12px;background:#09090b;border-radius:8px;";
             editHtml.innerHTML = `
                 <div style="margin-bottom:8px;">
-                    <label style="font-size:11px;color:#71717a;">表示名</label>
-                    <input id="profile-edit-name" value="${escapeHtml(profile.customName || user?.displayName || '')}" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;">
+                    <label style="font-size:11px;color:#71717a;display:block;">表示名</label>
+                    <input id="profile-edit-name" value="${escapeHtml(profile.customName || user?.displayName || '')}" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:8px;">
-                    <label style="font-size:11px;color:#71717a;">会社名</label>
-                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: RASEN株式会社" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;">
+                    <label style="font-size:11px;color:#71717a;display:block;">会社名</label>
+                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: RASEN株式会社" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;box-sizing:border-box;">
                 </div>
                 <button onclick="saveProfileEdits()" style="padding:6px 16px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-size:12px;cursor:pointer;">保存</button>
                 <span id="profile-save-msg" style="color:#4ade80;font-size:11px;margin-left:8px;display:none;">✓ 保存しました</span>
             `;
-            profileHeader.parentElement.insertBefore(editHtml, profileHeader.nextSibling);
+            profileHeaderDiv.insertAdjacentElement("afterend", editHtml);
 
             // 自分のプロジェクト一覧
             const projects = getProjects();
