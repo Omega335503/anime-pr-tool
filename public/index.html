@@ -3908,15 +3908,20 @@ ${fieldDefs}
         // 共有されたプロジェクトを読み込み
         async function loadSharedProjects() {
             const user = firebaseAuth.currentUser;
-            if (!user || !user.email) return;
+            appLog("info", "Share", "loadSharedProjects called, email=" + (user?.email || "null"));
+            if (!user || !user.email) { appLog("warn", "Share", "No user/email, skipping"); return; }
 
             const section = document.getElementById("shared-projects-section");
             const list = document.getElementById("shared-project-list");
 
             try {
+                const queryEmail = user.email.toLowerCase();
+                appLog("info", "Share", "Querying shares for: " + queryEmail);
                 const snapshot = await db.collection("shares")
-                    .where("sharedWith", "==", user.email.toLowerCase())
+                    .where("sharedWith", "==", queryEmail)
                     .get();
+
+                appLog("info", "Share", "Query result: " + snapshot.size + " docs, empty=" + snapshot.empty);
 
                 if (snapshot.empty) {
                     section.style.display = "none";
