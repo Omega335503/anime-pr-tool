@@ -3985,9 +3985,16 @@ ${fieldDefs}
                     ).join('');
 
                     const tabContents = docTabs.map((t, i) => {
-                        const data = structured[t.key];
+                        let content;
+                        if (t.key === 'gantt') {
+                            content = structured.timeline ? renderGanttChart(structured.timeline, p.name) : '<div class="detail-no-data">タイムラインがないためガントチャートを表示できません</div>';
+                        } else if (t.key === 'tweet_calendar') {
+                            content = renderTweetCalendar(id, p);
+                        } else {
+                            content = renderStructuredContent(t.key, structured[t.key], isEditor, id);
+                        }
                         return `<div class="detail-tab-content ${i === 0 ? 'active' : ''}" id="dtab-${id}-${t.key}" data-project-id="${id}" data-doc-type="${t.key}">
-                            ${renderStructuredContent(t.key, data, isEditor, id)}
+                            ${content}
                         </div>`;
                     }).join('');
 
