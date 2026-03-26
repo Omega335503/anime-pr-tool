@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyBKasmGl4EY6BHNFJSXFBMUEMIcGab8yDc",
@@ -743,7 +744,7 @@
                         <label style="font-size:12px;">添付画像</label>
                         <div id="tweet-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;"></div>
                         <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#27272a;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#a1a1aa;font-size:12px;">
-                            📷 画像を追加
+                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">photo_camera</span> 画像を追加
                             <input type="file" id="tweet-image-input" accept="image/*" multiple style="display:none;" onchange="handleTweetImages(this)">
                         </label>
                     </div>
@@ -761,7 +762,7 @@
                         </select>
                     </div>
                     <div style="display:flex;gap:8px;margin-top:12px;">
-                        <button onclick="aiGenerateTweet()" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">✨ AIでツイート生成</button>
+                        <button onclick="aiGenerateTweet()" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">auto_awesome</span> AIでツイート生成</button>
                         <button onclick="saveTweetDraft(true)" style="padding:10px 20px;background:#22c55e;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">保存</button>
                     </div>
                     <div id="tweet-ai-loading" style="display:none;text-align:center;padding:12px;">
@@ -1124,12 +1125,12 @@
                 saveProject(projectId, p);
                 renderProjectList();
 
-                if (btn) { btn.disabled = false; btn.textContent = '↗ 整形版を作成'; }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> 書き出し'; }
                 alert('Google Docs/Sheetsを作成しました！');
             } catch (err) {
                 console.error('[Export] Error:', err);
                 alert('作成に失敗しました: ' + err);
-                if (event?.target) { event.target.disabled = false; event.target.textContent = '↗ 整形版を作成'; }
+                if (event?.target) { event.target.disabled = false; event.target.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> 書き出し'; }
             }
         }
 
@@ -1732,7 +1733,7 @@
             const keys = Object.keys(projects);
 
             if (keys.length === 0) {
-                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-text">まだプロジェクトが登録されていません</div></div>';
+                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><span class="material-symbols-outlined" style="font-size:48px;">folder</span></div><div class="empty-state-text">まだプロジェクトが登録されていません</div></div>';
             } else {
                 list.innerHTML = keys.map(id => {
                     const p = projects[id];
@@ -1777,7 +1778,7 @@
                             <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name)}</div>
                             <div class="project-card-actions">
                                 <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
-                                ${p.exported_urls ? '' : `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;">↗ 整形版を作成</button>`}
+                                ${p.exported_urls ? '' : `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> 書き出し</button>`}
                                 <button onclick="showReExtractDialog('${id}')">再抽出</button>
                                 <button class="delete" onclick="removeProjectUI('${id}')">削除</button>
                             </div>
@@ -1796,7 +1797,7 @@
                         const count = snap.size + 1;
                         const el = document.getElementById("member-count-" + id);
                         if (el && count > 1) {
-                            el.innerHTML = `<button onclick="event.stopPropagation(); showMembersPopup('${id}')" style="font-size:11px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:3px 10px;border-radius:6px;cursor:pointer;">👥 ${count}人</button>`;
+                            el.innerHTML = `<button onclick="event.stopPropagation(); showMembersPopup('${id}')" style="font-size:11px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:3px 10px;border-radius:6px;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">group</span> ${count}人</button>`;
                             // メンバー情報もキャッシュ
                             window['_sharedMembers_' + id] = { owner: firebaseAuth.currentUser.email, members: snap.docs.map(d => d.data()) };
                         }
@@ -2598,7 +2599,7 @@
                         <td style="padding:6px 8px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(task.taskName)}</td>
                         <td style="padding:6px 8px;font-size:12px;color:${hasDraft ? '#e4e4e7' : '#3f3f46'};max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
                         <td style="padding:6px 8px;text-align:center;font-size:11px;color:${charColor};">${hasDraft ? charCount : '-'}</td>
-                        <td style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">${images > 0 ? '📷'+images : '-'}</td>
+                        <td style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">${images > 0 ? '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">photo_camera</span>'+images : '-'}</td>
                         <td style="padding:6px 8px;"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${st.bg};color:${st.color};">${st.label}</span></td>
                     </tr>`;
                 }).join("");
@@ -3219,7 +3220,7 @@
                 <select id="tweet-template-select" onchange="changeTaskTemplate(this.value)" style="font-size:11px;padding:2px 6px;background:#27272a;border:1px solid #3f3f46;border-radius:4px;color:#a1a1aa;">
                     ${Object.entries(TASK_TEMPLATES).map(([k,v]) => `<option value="${k}" ${k===templateKey?'selected':''}>${v.label}</option>`).join("")}
                 </select>
-                <button onclick="aiAutoFillFields()" id="btn-autofill" style="font-size:11px;padding:3px 10px;background:#7c3aed;border:none;color:#fff;border-radius:4px;cursor:pointer;">✨ AIで自動入力</button>
+                <button onclick="aiAutoFillFields()" id="btn-autofill" style="font-size:11px;padding:3px 10px;background:#7c3aed;border:none;color:#fff;border-radius:4px;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIで自動入力</button>
                 <span id="autofill-status" style="font-size:10px;color:#a1a1aa;"></span>
             </div>`;
 
@@ -3338,7 +3339,7 @@ ${fieldDefs}
                 status.style.color = "#ef4444";
             } finally {
                 btn.disabled = false;
-                btn.textContent = "✨ AIで自動入力";
+                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIで自動入力';
                 setTimeout(() => { status.textContent = ""; }, 5000);
             }
         }
@@ -4056,7 +4057,7 @@ ${fieldDefs}
                     const members = membersByProject[s.projectId] || [];
                     window['_sharedMembers_' + id] = { owner: s.ownerEmail, members };
                     const memberCount = members.length + 1; // +1 for owner
-                    const memberBtnHtml = `<button onclick="event.stopPropagation(); showMembersPopup('${id}')" style="font-size:11px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:3px 10px;border-radius:6px;cursor:pointer;">👥 ${memberCount}人</button>`;
+                    const memberBtnHtml = `<button onclick="event.stopPropagation(); showMembersPopup('${id}')" style="font-size:11px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;padding:3px 10px;border-radius:6px;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">group</span> ${memberCount}人</button>`;
 
                     // 自分のプロジェクトと同じタブ構造を生成
                     const structured = p.structured || {};
@@ -4093,19 +4094,20 @@ ${fieldDefs}
                     if (p.structured?.budget) sharedTags.push("予算表あり");
                     if (p.official_site_url) sharedTags.push("公式サイトあり");
 
-                    // 編集者は再抽出可能
-                    const sharedActions = isEditor ? `
+                    // 編集者はオーナーと同じアクション（書き出し・再抽出）、閲覧者は共有のみ
+                    const sharedActions = `
                         <div class="project-card-actions">
                             <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
-                            <button onclick="showReExtractDialog('${id}')">再抽出</button>
-                        </div>` : '';
+                            ${isEditor && !p.exported_urls ? `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> 書き出し</button>` : ''}
+                            ${isEditor ? `<button onclick="showReExtractDialog('${id}')">再抽出</button>` : ''}
+                        </div>`;
 
                     return `<div class="project-card" data-shared="true">
                         <div class="project-card-header">
                             <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name || s.projectId)}</div>
                             ${sharedActions}
                         </div>
-                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'}　<span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span> <span style="color:#52525b;font-size:11px;">by ${escapeHtml(s.ownerEmail)}</span> ${memberBtnHtml}</div>
+                        <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'} ${memberBtnHtml} <span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span></div>
                         ${sharedTags.length ? '<div class="project-card-tags">' + sharedTags.map(t => `<span class="project-card-tag">${escapeHtml(t)}</span>`).join('') + '</div>' : ''}
                         <div class="project-detail" id="pdetail-${id}">
                             <div class="detail-tab-nav">${tabNav}</div>
