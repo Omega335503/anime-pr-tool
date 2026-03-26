@@ -1545,12 +1545,30 @@
 
         // 単一プロジェクト削除
         function deleteProject(id) {
+            console.log("[Delete] Deleting project:", id);
             delete _projectsCache[id];
+            // localStorageからも削除
+            const storageKey = "anime_projects_" + (firebaseAuth.currentUser?.uid || "anon");
+            try {
+                const local = JSON.parse(localStorage.getItem(storageKey) || "{}");
+                delete local[id];
+                localStorage.setItem(storageKey, JSON.stringify(local));
+                console.log("[Delete] Removed from localStorage");
+            } catch(e) { console.error("[Delete] localStorage error:", e); }
+            // 旧キーからも削除
+            try {
+                const old = JSON.parse(localStorage.getItem("anime_projects") || "{}");
+                if (old[id]) { delete old[id]; localStorage.setItem("anime_projects", JSON.stringify(old)); }
+            } catch(e) {}
+            // Firestoreから削除
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
                 db.collection("users").doc(uid).collection("projects").doc(id).delete()
-                    .catch(err => console.error("[Firestore] delete error:", err));
+                    .then(() => console.log("[Delete] Removed from Firestore"))
+                    .catch(err => console.error("[Delete] Firestore error:", err));
             }
+            renderProjectList();
+            console.log("[Delete] Done, remaining:", Object.keys(_projectsCache).length);
         }
 
         // Firestoreからプロジェクトを読み込み
