@@ -917,10 +917,71 @@
                 <div class="profile-section-title">共有されたプロジェクト</div>
                 <div id="profile-shared-projects"></div>
             </div>
+            <div class="profile-section">
+                <div class="profile-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+                    アクティビティログ
+                    <button onclick="loadActivityLogs()" style="padding:4px 12px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;border-radius:6px;cursor:pointer;font-size:11px;">更新</button>
+                </div>
+                <div id="profile-logs" style="max-height:300px;overflow-y:auto;font-size:11px;font-family:monospace;">
+                    <p style="color:#52525b;">ログを読み込み中...</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // ===== ログ収集システム =====
+        const _logBuffer = [];
+        const _LOG_FLUSH_INTERVAL = 10000; // 10秒ごとにFirestoreに送信
+        const _LOG_MAX_BUFFER = 50;
+        const _LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3, action: 4 };
+
+        function appLog(level, category, message, data) {
+            const entry = {
+                ts: new Date().toISOString(),
+                level, category,
+                msg: typeof message === 'string' ? message : JSON.stringify(message),
+                ...(data ? { data: typeof data === 'object' ? JSON.stringify(data).slice(0, 500) : String(data) } : {}),
+                url: location.pathname,
+                ua: navigator.userAgent.slice(0, 80)
+            };
+            _logBuffer.push(entry);
+            // コンソールにも出力
+            const consoleFn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+            consoleFn(`[${category}] ${entry.msg}`, data || '');
+            // バッファが溜まったら即送信
+            if (_logBuffer.length >= _LOG_MAX_BUFFER) flushLogs();
+        }
+
+        async function flushLogs() {
+            if (_logBuffer.length === 0) return;
+            const uid = typeof firebaseAuth !== 'undefined' ? firebaseAuth.currentUser?.uid : null;
+            if (!uid || typeof db === 'undefined') return;
+            const batch = _logBuffer.splice(0, _logBuffer.length);
+            try {
+                await db.collection("users").doc(uid).collection("logs").add({
+                    entries: batch,
+                    count: batch.length,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    sessionId: _sessionId
+                });
+            } catch(e) {
+                // Firestore送信失敗はサイレントに（無限ループ防止）
+            }
+        }
+
+        const _sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        setInterval(flushLogs, _LOG_FLUSH_INTERVAL);
+        window.addEventListener('beforeunload', flushLogs);
+
+        // グローバルエラーキャッチ
+        window.addEventListener('error', (e) => {
+            appLog('error', 'Global', e.message, { file: e.filename, line: e.lineno, col: e.colno });
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            appLog('error', 'Promise', e.reason?.message || String(e.reason));
+        });
+
         // ===== 認証管理 =====
         const GOOGLE_CLIENT_ID = "118724174260-73vi4shmf3tc4ipktqr8a9ef39118hk7.apps.googleusercontent.com";
         let authToken = null;
@@ -1159,7 +1220,7 @@
             // Firebase認証（Google IDトークンでサインイン）
             const credential = firebase.auth.GoogleAuthProvider.credential(response.credential);
             firebaseAuth.signInWithCredential(credential).then(() => {
-                console.log("[Firebase] Signed in as", firebaseAuth.currentUser.uid);
+                appLog("info", "Firebase", Signed in as", firebaseAuth.currentUser.uid);
                 showApp(user);
             }).catch(err => {
                 console.error("[Firebase] Auth error:", err);
@@ -1206,18 +1267,18 @@
                     // トークンの有効期限チェック
                     if (saved.exp && saved.exp * 1000 < Date.now()) {
                         localStorage.removeItem("anime_pr_user");
-                        console.log("[Auth] Token expired, clearing");
+                        appLog("info", "Auth", Token expired, clearing");
                         return;
                     }
-                    console.log("[Auth] Restoring session for", saved.email);
+                    appLog("info", "Auth", Restoring session for", saved.email);
                     authToken = saved.token;
                     // Firebase再認証
                     const credential = firebase.auth.GoogleAuthProvider.credential(saved.token);
                     firebaseAuth.signInWithCredential(credential).then(() => {
-                        console.log("[Firebase] Re-authenticated as", firebaseAuth.currentUser.uid);
+                        appLog("info", "Firebase", Re-authenticated as", firebaseAuth.currentUser.uid);
                         showApp(saved);
                     }).catch(err => {
-                        console.warn("[Firebase] Re-auth failed, trying onAuthStateChanged:", err.message);
+                        appLog("warn", "Firebase", Re-auth failed, trying onAuthStateChanged:", err.message);
                         // Firebase側のセッション復元を待つ
                         showApp(saved);
                     });
@@ -1227,7 +1288,7 @@
 
         // Firebase認証状態の変化を監視（セッション復元）
         firebaseAuth.onAuthStateChanged(user => {
-            console.log("[Firebase] onAuthStateChanged:", user ? user.uid : "null");
+            appLog("info", "Firebase", onAuthStateChanged:", user ? user.uid : "null");
             if (user && Object.keys(_projectsCache).length === 0) {
                 loadProjectsFromFirestore();
             }
@@ -1458,8 +1519,8 @@
             if (uid) {
                 Object.entries(projects).forEach(([id, data]) => {
                     db.collection("users").doc(uid).collection("projects").doc(id).set(data)
-                        .then(() => console.log("[Firestore] saveProjects OK:", id))
-                        .catch(err => console.error("[Firestore] save error:", err));
+                        .then(() => appLog("info", "Firestore", saveProjects OK:", id))
+                        .catch(err => appLog("error", "Firestore", save error:", err));
                 });
             } else {
                 console.warn("[saveProjects] No uid, localStorage only");
@@ -1518,34 +1579,34 @@
                 const jsonStr = JSON.stringify(all);
                 console.log(`[localStorage] Saving ${id}, size: ${(jsonStr.length/1024).toFixed(1)}KB`);
                 localStorage.setItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon"), jsonStr);
-                console.log("[localStorage] Save OK");
+                appLog("info", "Storage", Save OK");
             } catch(e) { console.error("[localStorage] backup save failed:", e); }
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
-                console.log("[Firestore] Saving project:", id);
+                appLog("info", "Firestore", Saving project:", id);
                 const mainData = {...data};
                 delete mainData.documents;
                 const firestoreData = prepareForFirestore(mainData);
                 db.collection("users").doc(uid).collection("projects").doc(id).set(firestoreData)
                     .then(() => {
-                        console.log("[Firestore] Saved OK:", id);
+                        appLog("info", "Firestore", Saved OK:", id);
                         const docs = data.documents;
                         if (docs) {
                             db.collection("users").doc(uid).collection("projects").doc(id)
                                 .collection("raw_docs").doc("data").set(docs)
-                                .then(() => console.log("[Firestore] Raw docs saved"))
-                                .catch(e => console.warn("[Firestore] Raw docs save failed:", e));
+                                .then(() => appLog("info", "Firestore", Raw docs saved"))
+                                .catch(e => appLog("warn", "Firestore", Raw docs save failed:", e));
                         }
                     })
-                    .catch(err => console.error("[Firestore] save error:", err));
+                    .catch(err => appLog("error", "Firestore", save error:", err));
             } else {
-                console.warn("[Firestore] No uid, saved to localStorage only");
+                appLog("warn", "Firestore", No uid, saved to localStorage only");
             }
         }
 
         // 単一プロジェクト削除
         function deleteProject(id) {
-            console.log("[Delete] Deleting project:", id);
+            appLog("action", "Delete", Deleting project:", id);
             delete _projectsCache[id];
             // localStorageからも削除
             const storageKey = "anime_projects_" + (firebaseAuth.currentUser?.uid || "anon");
@@ -1553,8 +1614,8 @@
                 const local = JSON.parse(localStorage.getItem(storageKey) || "{}");
                 delete local[id];
                 localStorage.setItem(storageKey, JSON.stringify(local));
-                console.log("[Delete] Removed from localStorage");
-            } catch(e) { console.error("[Delete] localStorage error:", e); }
+                appLog("action", "Delete", Removed from localStorage");
+            } catch(e) { appLog("error", "Delete", localStorage error:", e); }
             // 旧キーからも削除
             try {
                 const old = JSON.parse(localStorage.getItem("anime_projects") || "{}");
@@ -1564,17 +1625,17 @@
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
                 db.collection("users").doc(uid).collection("projects").doc(id).delete()
-                    .then(() => console.log("[Delete] Removed from Firestore"))
-                    .catch(err => console.error("[Delete] Firestore error:", err));
+                    .then(() => appLog("action", "Delete", Removed from Firestore"))
+                    .catch(err => appLog("error", "Delete", Firestore error:", err));
             }
             renderProjectList();
-            console.log("[Delete] Done, remaining:", Object.keys(_projectsCache).length);
+            appLog("action", "Delete", Done, remaining:", Object.keys(_projectsCache).length);
         }
 
         // Firestoreからプロジェクトを読み込み
         async function loadProjectsFromFirestore() {
             const uid = firebaseAuth.currentUser?.uid;
-            console.log("[Firestore] loadProjects called, uid:", uid);
+            appLog("info", "Firestore", loadProjects called, uid:", uid);
 
             // まずlocalStorageから即時読み込み（高速表示）
             try {
@@ -1587,7 +1648,7 @@
             } catch(e) {}
 
             if (!uid) {
-                console.warn("[Firestore] No uid, using localStorage only");
+                appLog("warn", "Firestore", No uid, using localStorage only");
                 return;
             }
 
@@ -1605,7 +1666,7 @@
                     // Firestoreが空ならlocalStorageから移行
                     const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
                     if (Object.keys(local).length > 0) {
-                        console.log("[Firestore] Migrating from localStorage...");
+                        appLog("info", "Firestore", Migrating from localStorage...");
                         for (const [id, data] of Object.entries(local)) {
                             const fsData = prepareForFirestore(data);
                             await db.collection("users").doc(uid).collection("projects").doc(id).set(fsData);
@@ -1617,7 +1678,7 @@
                 _firestoreReady = true;
                 renderProjectList();
             } catch (err) {
-                console.error("[Firestore] Load error:", err, "- using localStorage fallback");
+                appLog("error", "Firestore", Load error:", err, "- using localStorage fallback");
             }
         }
 
@@ -1709,10 +1770,10 @@
         }
 
         async function registerProject() {
-            console.log("[DEBUG] registerProject called");
+            appLog("debug", "Debug", registerProject called");
             const name = document.getElementById("pj-name").value.trim();
             if (!name) { alert("作品名を入力してください"); return; }
-            console.log("[DEBUG] name=", name, "authToken=", authToken ? "SET" : "NULL");
+            appLog("debug", "Debug", name=", name, "authToken=", authToken ? "SET" : "NULL");
 
             const urlKeys = ["timeline", "text_master", "budget"];
             const urls = {};
@@ -1873,7 +1934,7 @@
         }
 
         function showExtractPreview(extracted, structured) {
-            console.log("[DEBUG] showExtractPreview", { extracted, structured });
+            appLog("debug", "Debug", showExtractPreview", { extracted, structured });
             const container = document.getElementById("pj-extract-fields");
             const docTabs = [
                 { key: "timeline", label: "宣伝タイムライン" },
@@ -2387,7 +2448,7 @@
                 documents: pendingExtract.documents,
                 created_at: new Date().toISOString(),
             };
-            console.log("[Save] Saving project:", id, projectData.name);
+            appLog("action", "Save", Saving project:", id, projectData.name);
             saveProject(id, projectData);
             pendingExtract = null;
             document.getElementById("pj-extract-preview").style.display = "none";
@@ -2856,14 +2917,14 @@
             taskSelect.innerHTML = '<option value="">-- 施策を選択 --</option>';
             if (!projectId) { taskGroup.style.display = "none"; return; }
             const p = getProjects()[projectId];
-            console.log("[updateTaskSelect] projectId:", projectId, "keys:", p ? Object.keys(p) : "null", "structured:", p?.structured ? Object.keys(p.structured) : "null", "timeline:", p?.structured?.timeline?.length || 0);
+            appLog("debug", "TaskSelect", projectId:", projectId, "keys:", p ? Object.keys(p) : "null", "structured:", p?.structured ? Object.keys(p.structured) : "null", "timeline:", p?.structured?.timeline?.length || 0);
             if (!p?.structured?.timeline) { taskGroup.style.display = "none"; return; }
 
             const tl = p.structured.timeline;
             // デバッグ: カテゴリ分布を表示
             const catCount = {};
             tl.forEach(e => { catCount[e.category] = (catCount[e.category]||0) + 1; });
-            console.log("[updateTaskSelect] categories:", catCount);
+            appLog("debug", "TaskSelect", categories:", catCount);
             tl.forEach((entry, ei) => {
                 if (!EXPAND_CATEGORIES.includes(entry.category)) return;
                 const date = entry.date || "日付未定";
@@ -2887,7 +2948,7 @@
                     taskSelect.appendChild(opt);
                 }
             });
-            console.log("[updateTaskSelect] options count:", taskSelect.options.length);
+            appLog("debug", "TaskSelect", options count:", taskSelect.options.length);
             taskGroup.style.display = taskSelect.options.length > 1 ? "block" : "none";
         }
 
@@ -3928,10 +3989,41 @@ ${fieldDefs}
             }
 
             document.getElementById("profile-modal").classList.remove("hidden");
+            loadActivityLogs();
         }
 
         function closeProfileModal() {
             document.getElementById("profile-modal").classList.add("hidden");
+        }
+
+        async function loadActivityLogs() {
+            const uid = firebaseAuth.currentUser?.uid;
+            const el = document.getElementById("profile-logs");
+            if (!uid) { el.innerHTML = '<p style="color:#ef4444;">ログインが必要です</p>'; return; }
+            el.innerHTML = '<p style="color:#52525b;">読み込み中...</p>';
+            try {
+                const snap = await db.collection("users").doc(uid).collection("logs")
+                    .orderBy("createdAt", "desc").limit(20).get();
+                if (snap.empty) { el.innerHTML = '<p style="color:#52525b;">ログはありません</p>'; return; }
+                let html = '';
+                const levelColors = { error: '#ef4444', warn: '#f59e0b', action: '#22c55e', info: '#6366f1', debug: '#52525b' };
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    (d.entries || []).reverse().forEach(e => {
+                        const color = levelColors[e.level] || '#71717a';
+                        const time = e.ts ? new Date(e.ts).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+                        html += `<div style="padding:3px 0;border-bottom:1px solid #1f1f23;display:flex;gap:6px;">
+                            <span style="color:#52525b;min-width:90px;">${time}</span>
+                            <span style="color:${color};min-width:50px;font-weight:600;">${e.level}</span>
+                            <span style="color:#a1a1aa;min-width:70px;">${e.category}</span>
+                            <span style="color:#d4d4d8;flex:1;">${escapeHtml(e.msg || '')}</span>
+                        </div>`;
+                    });
+                });
+                el.innerHTML = html || '<p style="color:#52525b;">ログはありません</p>';
+            } catch(e) {
+                el.innerHTML = `<p style="color:#ef4444;">読み込みエラー: ${escapeHtml(e.message)}</p>`;
+            }
         }
 
         // モーダル外クリックで閉じる

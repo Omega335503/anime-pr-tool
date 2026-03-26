@@ -33,6 +33,11 @@ service cloud.firestore {
       );
     }
 
+    // User logs
+    match /users/{userId}/logs/{logId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // User profiles
     match /user_profiles/{userId} {
       allow read: if request.auth != null;
