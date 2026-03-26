@@ -858,9 +858,8 @@
             <!-- 登録済みプロジェクト一覧 -->
             <div id="project-list"></div>
 
-            <!-- 共有されたプロジェクト -->
+            <!-- 共有プロジェクト（project-listの末尾に統合表示） -->
             <div id="shared-projects-section" style="display:none;">
-                <div class="shared-section-title">共有されたプロジェクト</div>
                 <div id="shared-project-list"></div>
             </div>
         </div>
@@ -898,12 +897,8 @@
                 </div>
             </div>
             <div class="profile-section">
-                <div class="profile-section-title">自分のプロジェクト</div>
-                <div id="profile-my-projects"></div>
-            </div>
-            <div class="profile-section">
-                <div class="profile-section-title">共有されたプロジェクト</div>
-                <div id="profile-shared-projects"></div>
+                <div class="profile-section-title">プロジェクト</div>
+                <div id="profile-all-projects"></div>
             </div>
             <div class="profile-section">
                 <div class="profile-section-title" style="display:flex;justify-content:space-between;align-items:center;">
@@ -4029,8 +4024,11 @@ ${fieldDefs}
                     } catch(e) { membersByProject[s.projectId] = []; }
                 }
 
-                section.style.display = "block";
-                list.innerHTML = sharedItems.map(s => {
+                // project-listの末尾に共有プロジェクトを追加
+                const projectList = document.getElementById("project-list");
+                // 既存の共有カードを削除
+                projectList.querySelectorAll('.project-card[data-shared="true"]').forEach(el => el.remove());
+                const sharedHtml = sharedItems.map(s => {
                     const p = s._projectData;
                     const id = "shared_" + s.ownerUid + "_" + s.projectId;
                     const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
@@ -4076,7 +4074,7 @@ ${fieldDefs}
                         </div>`;
                     }).join('');
 
-                    return `<div class="project-card">
+                    return `<div class="project-card" data-shared="true">
                         <div class="project-card-header">
                             <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name || s.projectId)}
                                 <span class="shared-badge ${roleClass}">${roleLabel}</span>
@@ -4090,6 +4088,10 @@ ${fieldDefs}
                         </div>
                     </div>`;
                 }).join("");
+                projectList.insertAdjacentHTML("beforeend", sharedHtml);
+                // 空メッセージを非表示にする
+                const emptyMsg = projectList.querySelector('.empty-state, .no-projects');
+                if (emptyMsg && sharedItems.length > 0) emptyMsg.style.display = 'none';
 
             } catch(err) {
                 console.error("[Share] Load shared projects error:", err);
@@ -4163,55 +4165,47 @@ ${fieldDefs}
             // 編集フォーム
             const editArea = document.getElementById("profile-edit-area");
             if (editArea) editArea.remove();
-            const profileHeader = document.getElementById("profile-name").parentElement;
+            const profileHeaderDiv = document.querySelector("#profile-modal .profile-header");
             const editHtml = document.createElement("div");
             editHtml.id = "profile-edit-area";
-            editHtml.style.cssText = "margin-top:12px;padding:12px;background:#09090b;border-radius:8px;";
+            editHtml.style.cssText = "margin-bottom:20px;padding:12px;background:#09090b;border-radius:8px;";
             editHtml.innerHTML = `
                 <div style="margin-bottom:8px;">
-                    <label style="font-size:11px;color:#71717a;">表示名</label>
-                    <input id="profile-edit-name" value="${escapeHtml(profile.customName || user?.displayName || '')}" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;">
+                    <label style="font-size:11px;color:#71717a;display:block;">表示名</label>
+                    <input id="profile-edit-name" value="${escapeHtml(profile.customName || user?.displayName || '')}" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:8px;">
-                    <label style="font-size:11px;color:#71717a;">会社名</label>
-                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: RASEN株式会社" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;">
+                    <label style="font-size:11px;color:#71717a;display:block;">会社名</label>
+                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: RASEN株式会社" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;box-sizing:border-box;">
                 </div>
                 <button onclick="saveProfileEdits()" style="padding:6px 16px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-size:12px;cursor:pointer;">保存</button>
                 <span id="profile-save-msg" style="color:#4ade80;font-size:11px;margin-left:8px;display:none;">✓ 保存しました</span>
             `;
-            profileHeader.parentElement.insertBefore(editHtml, profileHeader.nextSibling);
+            profileHeaderDiv.insertAdjacentElement("afterend", editHtml);
 
-            // 自分のプロジェクト一覧
+            // プロジェクト一覧（自分 + 共有を統合）
             const projects = getProjects();
-            const myProjectsEl = document.getElementById("profile-my-projects");
-            const keys = Object.keys(projects);
-            if (keys.length === 0) {
-                myProjectsEl.innerHTML = '<p style="color:#52525b;font-size:13px;">プロジェクトはありません</p>';
-            } else {
-                myProjectsEl.innerHTML = keys.map(id => {
-                    const p = projects[id];
-                    return `<div class="profile-project-item">
-                        <span>${escapeHtml(p.name)}</span>
-                        <span style="color:#52525b;font-size:11px;">${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : ''}</span>
-                    </div>`;
-                }).join("");
-            }
-
-            // 共有されたプロジェクト一覧
-            const sharedEl = document.getElementById("profile-shared-projects");
-            if (_sharedProjectsCache.length === 0) {
-                sharedEl.innerHTML = '<p style="color:#52525b;font-size:13px;">共有されたプロジェクトはありません</p>';
-            } else {
-                sharedEl.innerHTML = _sharedProjectsCache.map(s => {
-                    const p = s._projectData;
-                    const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
-                    const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
-                    return `<div class="profile-project-item">
-                        <span>${escapeHtml(p.name || s.projectId)} <span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span></span>
-                        <span style="color:#52525b;font-size:11px;">by ${escapeHtml(s.ownerEmail)}</span>
-                    </div>`;
-                }).join("");
-            }
+            const allProjectsEl = document.getElementById("profile-all-projects");
+            let allHtml = "";
+            // 自分のプロジェクト
+            Object.keys(projects).forEach(id => {
+                const p = projects[id];
+                allHtml += `<div class="profile-project-item">
+                    <span>${escapeHtml(p.name)}</span>
+                    <span style="color:#52525b;font-size:11px;">${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : ''}</span>
+                </div>`;
+            });
+            // 共有されたプロジェクト
+            _sharedProjectsCache.forEach(s => {
+                const p = s._projectData;
+                const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
+                const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
+                allHtml += `<div class="profile-project-item">
+                    <span>${escapeHtml(p.name || s.projectId)} <span class="shared-badge ${roleClass}" style="font-size:10px;">${roleLabel}</span></span>
+                    <span style="color:#52525b;font-size:11px;">共有 · ${escapeHtml(s.ownerEmail)}</span>
+                </div>`;
+            });
+            allProjectsEl.innerHTML = allHtml || '<p style="color:#52525b;font-size:13px;">プロジェクトはありません</p>';
 
             document.getElementById("profile-modal").classList.remove("hidden");
             loadActivityLogs();
