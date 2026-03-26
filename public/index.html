@@ -1189,7 +1189,7 @@
                 return JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
                     '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
                 ).join('')));
-            } catch { return null; }
+            } catch(e) { return null; }
         }
 
         // 画面上デバッグ表示
@@ -1321,18 +1321,18 @@
                     // トークンの有効期限チェック
                     if (saved.exp && saved.exp * 1000 < Date.now()) {
                         localStorage.removeItem("anime_pr_user");
-                        appLog("info", "Auth", Token expired, clearing");
+                        appLog("info", "Auth", "Token expired, clearing");
                         return;
                     }
-                    appLog("info", "Auth", Restoring session for", saved.email);
+                    appLog("info", "Auth", "Restoring session for " + saved.email);
                     authToken = saved.token;
                     // Firebase再認証
                     const credential = firebase.auth.GoogleAuthProvider.credential(saved.token);
                     firebaseAuth.signInWithCredential(credential).then(() => {
-                        appLog("info", "Firebase", Re-authenticated as", firebaseAuth.currentUser.uid);
+                        appLog("info", "Firebase", "Re-authenticated as " + firebaseAuth.currentUser.uid);
                         showApp(saved);
                     }).catch(err => {
-                        appLog("warn", "Firebase", Re-auth failed, trying onAuthStateChanged:", err.message);
+                        appLog("warn", "Firebase", "Re-auth failed, trying onAuthStateChanged: " + err.message);
                         // Firebase側のセッション復元を待つ
                         showApp(saved);
                     });
@@ -1342,7 +1342,7 @@
 
         // Firebase認証状態の変化を監視（セッション復元）
         firebaseAuth.onAuthStateChanged(user => {
-            appLog("info", "Firebase", onAuthStateChanged:", user ? user.uid : "null");
+            appLog("info", "Firebase", "onAuthStateChanged: " + (user ? user.uid : "null"));
             if (user && Object.keys(_projectsCache).length === 0) {
                 loadProjectsFromFirestore();
             }
@@ -1573,8 +1573,8 @@
             if (uid) {
                 Object.entries(projects).forEach(([id, data]) => {
                     db.collection("users").doc(uid).collection("projects").doc(id).set(data)
-                        .then(() => appLog("info", "Firestore", saveProjects OK:", id))
-                        .catch(err => appLog("error", "Firestore", save error:", err));
+                        .then(() => appLog("info", "Firestore", "saveProjects OK: " + id))
+                        .catch(err => appLog("error", "Firestore", "save error: " + err));
                 });
             } else {
                 console.warn("[saveProjects] No uid, localStorage only");
@@ -1633,34 +1633,34 @@
                 const jsonStr = JSON.stringify(all);
                 console.log(`[localStorage] Saving ${id}, size: ${(jsonStr.length/1024).toFixed(1)}KB`);
                 localStorage.setItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon"), jsonStr);
-                appLog("info", "Storage", Save OK");
+                appLog("info", "Storage", "Save OK");
             } catch(e) { console.error("[localStorage] backup save failed:", e); }
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
-                appLog("info", "Firestore", Saving project:", id);
+                appLog("info", "Firestore", "Saving project: " + id);
                 const mainData = {...data};
                 delete mainData.documents;
                 const firestoreData = prepareForFirestore(mainData);
                 db.collection("users").doc(uid).collection("projects").doc(id).set(firestoreData)
                     .then(() => {
-                        appLog("info", "Firestore", Saved OK:", id);
+                        appLog("info", "Firestore", "Saved OK: " + id);
                         const docs = data.documents;
                         if (docs) {
                             db.collection("users").doc(uid).collection("projects").doc(id)
                                 .collection("raw_docs").doc("data").set(docs)
-                                .then(() => appLog("info", "Firestore", Raw docs saved"))
-                                .catch(e => appLog("warn", "Firestore", Raw docs save failed:", e));
+                                .then(() => appLog("info", "Firestore", "Raw docs saved"))
+                                .catch(e => appLog("warn", "Firestore", "Raw docs save failed: " + e));
                         }
                     })
-                    .catch(err => appLog("error", "Firestore", save error:", err));
+                    .catch(err => appLog("error", "Firestore", "save error: " + err));
             } else {
-                appLog("warn", "Firestore", No uid, saved to localStorage only");
+                appLog("warn", "Firestore", "No uid, saved to localStorage only");
             }
         }
 
         // 単一プロジェクト削除
         function deleteProject(id) {
-            appLog("action", "Delete", Deleting project:", id);
+            appLog("action", "Delete", "Deleting project: " + id);
             delete _projectsCache[id];
             // localStorageからも削除
             const storageKey = "anime_projects_" + (firebaseAuth.currentUser?.uid || "anon");
@@ -1668,8 +1668,8 @@
                 const local = JSON.parse(localStorage.getItem(storageKey) || "{}");
                 delete local[id];
                 localStorage.setItem(storageKey, JSON.stringify(local));
-                appLog("action", "Delete", Removed from localStorage");
-            } catch(e) { appLog("error", "Delete", localStorage error:", e); }
+                appLog("action", "Delete", "Removed from localStorage");
+            } catch(e) { appLog("error", "Delete", "localStorage error: " + e); }
             // 旧キーからも削除
             try {
                 const old = JSON.parse(localStorage.getItem("anime_projects") || "{}");
@@ -1679,17 +1679,17 @@
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
                 db.collection("users").doc(uid).collection("projects").doc(id).delete()
-                    .then(() => appLog("action", "Delete", Removed from Firestore"))
-                    .catch(err => appLog("error", "Delete", Firestore error:", err));
+                    .then(() => appLog("action", "Delete", "Removed from Firestore"))
+                    .catch(err => appLog("error", "Delete", "Firestore error: " + err));
             }
             renderProjectList();
-            appLog("action", "Delete", Done, remaining:", Object.keys(_projectsCache).length);
+            appLog("action", "Delete", "Done, remaining: " + Object.keys(_projectsCache).length);
         }
 
         // Firestoreからプロジェクトを読み込み
         async function loadProjectsFromFirestore() {
             const uid = firebaseAuth.currentUser?.uid;
-            appLog("info", "Firestore", loadProjects called, uid:", uid);
+            appLog("info", "Firestore", "loadProjects called, uid: " + uid);
 
             // まずlocalStorageから即時読み込み（高速表示）
             try {
@@ -1702,7 +1702,7 @@
             } catch(e) {}
 
             if (!uid) {
-                appLog("warn", "Firestore", No uid, using localStorage only");
+                appLog("warn", "Firestore", "No uid, using localStorage only");
                 return;
             }
 
@@ -1720,7 +1720,7 @@
                     // Firestoreが空ならlocalStorageから移行
                     const local = JSON.parse(localStorage.getItem("anime_projects_" + (firebaseAuth.currentUser?.uid || "anon")) || "{}");
                     if (Object.keys(local).length > 0) {
-                        appLog("info", "Firestore", Migrating from localStorage...");
+                        appLog("info", "Firestore", "Migrating from localStorage...");
                         for (const [id, data] of Object.entries(local)) {
                             const fsData = prepareForFirestore(data);
                             await db.collection("users").doc(uid).collection("projects").doc(id).set(fsData);
@@ -1732,7 +1732,7 @@
                 _firestoreReady = true;
                 renderProjectList();
             } catch (err) {
-                appLog("error", "Firestore", Load error:", err, "- using localStorage fallback");
+                appLog("error", "Firestore", "Load error:", err, "- using localStorage fallback");
             }
         }
 
@@ -1824,10 +1824,10 @@
         }
 
         async function registerProject() {
-            appLog("debug", "Debug", registerProject called");
+            appLog("debug", "Debug", "registerProject called");
             const name = document.getElementById("pj-name").value.trim();
             if (!name) { alert("作品名を入力してください"); return; }
-            appLog("debug", "Debug", name=", name, "authToken=", authToken ? "SET" : "NULL");
+            appLog("debug", "Debug", "name=", name, "authToken=", authToken ? "SET" : "NULL");
 
             const urlKeys = ["timeline", "text_master", "budget"];
             const urls = {};
@@ -1988,7 +1988,7 @@
         }
 
         function showExtractPreview(extracted, structured) {
-            appLog("debug", "Debug", showExtractPreview", { extracted, structured });
+            appLog("debug", "Debug", "showExtractPreview", JSON.stringify({extracted: !!extracted, structured: !!structured}));
             const container = document.getElementById("pj-extract-fields");
             const docTabs = [
                 { key: "timeline", label: "宣伝タイムライン" },
@@ -2502,7 +2502,7 @@
                 documents: pendingExtract.documents,
                 created_at: new Date().toISOString(),
             };
-            appLog("action", "Save", Saving project:", id, projectData.name);
+            appLog("action", "Save", "Saving project: " + id + " " + projectData.name);
             saveProject(id, projectData);
             pendingExtract = null;
             document.getElementById("pj-extract-preview").style.display = "none";
@@ -2971,14 +2971,14 @@
             taskSelect.innerHTML = '<option value="">-- 施策を選択 --</option>';
             if (!projectId) { taskGroup.style.display = "none"; return; }
             const p = getProjects()[projectId];
-            appLog("debug", "TaskSelect", projectId:", projectId, "keys:", p ? Object.keys(p) : "null", "structured:", p?.structured ? Object.keys(p.structured) : "null", "timeline:", p?.structured?.timeline?.length || 0);
+            appLog("debug", "TaskSelect", "projectId: " + projectId + " keys: " + (p ? Object.keys(p) : "null") + " timeline: " + (p?.structured?.timeline?.length || 0));
             if (!p?.structured?.timeline) { taskGroup.style.display = "none"; return; }
 
             const tl = p.structured.timeline;
             // デバッグ: カテゴリ分布を表示
             const catCount = {};
             tl.forEach(e => { catCount[e.category] = (catCount[e.category]||0) + 1; });
-            appLog("debug", "TaskSelect", categories:", catCount);
+            appLog("debug", "TaskSelect", "categories: " + JSON.stringify(catCount));
             tl.forEach((entry, ei) => {
                 if (!EXPAND_CATEGORIES.includes(entry.category)) return;
                 const date = entry.date || "日付未定";
@@ -3002,7 +3002,7 @@
                     taskSelect.appendChild(opt);
                 }
             });
-            appLog("debug", "TaskSelect", options count:", taskSelect.options.length);
+            appLog("debug", "TaskSelect", "options count: " + taskSelect.options.length);
             taskGroup.style.display = taskSelect.options.length > 1 ? "block" : "none";
         }
 
