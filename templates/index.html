@@ -3987,7 +3987,7 @@ ${fieldDefs}
                         { key: "budget", label: "宣伝予算表" },
                         { key: "gantt", label: "ガントチャート" },
                         { key: "tweet_calendar", label: "発信カレンダー" }
-                    ].filter(t => t.key === "gantt" || t.key === "tweet_calendar" || structured[t.key]);
+                    ]; // 全タブ常に表示（データなしは「未登録」表示）
 
                     const tabNav = docTabs.map((t, i) =>
                         `<button class="detail-tab-btn ${i===0?'active':''}" onclick="switchDetailTab('${id}','${t.key}',this)">${t.label}</button>`
