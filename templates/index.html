@@ -3484,11 +3484,15 @@
             const calPlaceholder = document.getElementById("content-calendar-placeholder");
             const editorPlaceholder = document.getElementById("tweet-editor-placeholder");
 
+            // エディタをリセット
+            document.getElementById("tweet-editor-panel").style.display = "none";
+            document.getElementById("legacy-content-form").style.display = "none";
+            if (editorPlaceholder) editorPlaceholder.style.display = "";
+            currentContentType = "tweet";
+
             if (!projectId) {
                 if (calendarEl) calendarEl.style.display = "none";
                 if (calPlaceholder) calPlaceholder.style.display = "";
-                if (editorPlaceholder) editorPlaceholder.style.display = "";
-                document.getElementById("tweet-editor-panel").style.display = "none";
                 return;
             }
 
