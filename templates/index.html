@@ -3572,7 +3572,8 @@
                 }
             });
             appLog("debug", "TaskSelect", "options count: " + taskSelect.options.length);
-            taskGroup.style.display = taskSelect.options.length > 1 ? "block" : "none";
+            // カレンダーから選択するのでセレクトボックスは常に非表示
+            taskGroup.style.display = "none";
         }
 
         function applyTask() {
