@@ -2492,6 +2492,8 @@
             const tl = _getTl(btnEl);
             if (!tl) return;
             tl.push({ date: "", title: "", category: "その他", items: [] });
+            // 予算表にも連動して行を追加
+            syncTlEntryToBudget("その他", "", "");
             _refreshTlTab(btnEl);
         }
         function removeTlEntry(ei, btnEl) {
@@ -2531,23 +2533,37 @@
             saveEditTarget();
         }
 
+        // タイムライン→予算表の連動: エントリ追加時に予算行も追加
+        function syncTlEntryToBudget(category, title, date) {
+            const target = getEditTarget();
+            if (!target?.structured?.budget) return;
+            const budget = target.structured.budget;
+            if (!budget.sections) return;
+            // 最初のセクション（マスト施策）に行を追加
+            const sec = budget.sections[0] || (budget.sections.push({ title: 'マスト施策', rows: [] }), budget.sections[0]);
+            // BUDGET_HEADERS: 科目(0),請求月(1),発注先(2),宣伝内容(3),実施時期(4),見込み額(5),実施金額(6),種別(7),補足(8)
+            sec.rows.push([category || 'その他', '', '', title || '', date || '', '0', '', 'マスト', '']);
+            // 予算表タブがあれば再描画
+            refreshPreviewTab('budget');
+        }
+
         function refreshPreviewTab(docType) {
-            const tab = document.getElementById('preview-tab-' + docType);
-            if (tab && pendingExtract?.structured?.[docType]) {
-                // スクロール位置を保持
-                const scrollable = tab.querySelector('.tl-tree, .editable-table-wrap');
-                const scrollTop = scrollable ? scrollable.scrollTop : 0;
-                const pageScrollTop = window.scrollY;
-
-                tab.innerHTML = renderStructuredContent(docType, pendingExtract.structured[docType], true);
-
-                // スクロール位置を復元
-                requestAnimationFrame(() => {
-                    const newScrollable = tab.querySelector('.tl-tree, .editable-table-wrap');
-                    if (newScrollable) newScrollable.scrollTop = scrollTop;
-                    window.scrollTo(0, pageScrollTop);
-                });
-            }
+            const target = getEditTarget();
+            const data = target?.structured?.[docType];
+            if (!data) return;
+            // プレビュー or プロジェクト詳細のタブを探す
+            let tab = document.getElementById('preview-tab-' + docType);
+            if (!tab) tab = document.querySelector(`.detail-tab-content[id*="${docType}"]`);
+            if (!tab) return;
+            const scrollable = tab.querySelector('.tl-tree, .editable-table-wrap');
+            const scrollTop = scrollable ? scrollable.scrollTop : 0;
+            const pageScrollTop = window.scrollY;
+            tab.innerHTML = renderStructuredContent(docType, data, true);
+            requestAnimationFrame(() => {
+                const newScrollable = tab.querySelector('.tl-tree, .editable-table-wrap');
+                if (newScrollable) newScrollable.scrollTop = scrollTop;
+                window.scrollTo(0, pageScrollTop);
+            });
         }
 
         function renderTable(data, editable) {
@@ -2700,23 +2716,39 @@
                 });
                 html += '</tbody></table></div>';
 
-                // サマリー表示
-                const s = data._budget_summary;
-                if (s && (s.total_budget || s.must_total)) {
-                    const fmt = (v) => { const n = parseInt(String(v||0).replace(/[,，円¥]/g, '')); return isNaN(n) ? '-' : n.toLocaleString() + '円'; };
-                    html += '<div style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
+                // サマリー表示（常に表示、データなければ0で初期化）
+                const s = data._budget_summary || {};
+                {
+                    const fmt = (v) => { const n = parseInt(String(v||0).replace(/[,，円¥]/g, '')); return isNaN(n) ? '0円' : n.toLocaleString() + '円'; };
+                    html += '<div data-budget-summary style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
                     html += '<div style="font-weight:700;color:#e4e4e7;margin-bottom:8px;">予算サマリー</div>';
                     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;">';
                     [
-                        { label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
-                        { label: 'マスト費用', value: s.must_total, color: '#f97316' },
-                        { label: 'オプション費用', value: s.option_total, color: '#a855f7' },
-                        { label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
-                        { label: '残額', value: s.remaining, color: parseInt(String(s.remaining||0).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
+                        { key: 'total_budget', label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
+                        { key: 'must_total', label: 'マスト費用', value: s.must_total, color: '#f97316' },
+                        { key: 'option_total', label: 'オプション費用', value: s.option_total, color: '#a855f7' },
+                        { key: 'must_option_total', label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
+                        { key: 'remaining', label: '残額', value: s.remaining, color: parseInt(String(s.remaining||0).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
                     ].forEach(i => {
-                        html += `<div style="padding:8px;background:#27272a;border-radius:6px;"><div style="font-size:10px;color:#a1a1aa;">${i.label}</div><div style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div></div>`;
+                        html += `<div data-summary-key="${i.key}" style="padding:8px;background:#27272a;border-radius:6px;"><div style="font-size:10px;color:#a1a1aa;">${i.label}</div><div class="summary-value" style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div></div>`;
                     });
-                    html += '</div></div>';
+                    html += '</div>';
+                    // 初期カテゴリ別内訳
+                    const parseNum2 = (v) => { const n = parseInt(String(v||0).replace(/[,，円¥]/g, '')); return isNaN(n) ? 0 : n; };
+                    const catTotals = {};
+                    (data.sections || []).forEach(sec => (sec.rows || []).forEach(row => {
+                        const amt = parseNum2(row[6]) || parseNum2(row[5]);
+                        catTotals[row[0] || 'その他'] = (catTotals[row[0] || 'その他'] || 0) + amt;
+                    }));
+                    if (Object.keys(catTotals).length) {
+                        html += '<div data-cat-breakdown><div style="margin-top:10px;border-top:1px solid #3f3f46;padding-top:10px;"><div style="font-size:11px;color:#a1a1aa;margin-bottom:6px;">カテゴリ別内訳</div>';
+                        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+                        Object.entries(catTotals).sort((a,b) => b[1]-a[1]).forEach(([cat, total]) => {
+                            html += `<span style="font-size:11px;padding:3px 8px;background:#27272a;border:1px solid #3f3f46;border-radius:4px;color:#d4d4d8;">${cat} <b style="color:#fbbf24;">${fmt(total)}</b></span>`;
+                        });
+                        html += '</div></div></div>';
+                    }
+                    html += '</div>';
                 }
                 return html;
             } catch(err) { console.error('renderBudgetTable error:', err); }
@@ -2888,7 +2920,58 @@
             if (data.sections[si] && data.sections[si].rows[ri]) {
                 data.sections[si].rows[ri][ci] = el.value;
             }
+            // 予算表の場合: サマリーをリアルタイム再計算
+            if (docType === 'budget') recalcBudgetSummary(data, el);
             saveEditTarget();
+        }
+
+        function recalcBudgetSummary(data, contextEl) {
+            if (!data || !data.sections) return;
+            const parseNum = (v) => { const n = parseInt(String(v||0).replace(/[,，円¥]/g, '')); return isNaN(n) ? 0 : n; };
+            let mustTotal = 0, optTotal = 0;
+            const catTotals = {};
+            // headers: 科目(0),請求月(1),発注先(2),宣伝内容(3),実施時期(4),見込み額(5),実施金額(6),種別(7),補足(8)
+            (data.sections || []).forEach(sec => {
+                (sec.rows || []).forEach(row => {
+                    const estimate = parseNum(row[5]);
+                    const actual = parseNum(row[6]);
+                    const amount = actual || estimate;
+                    const isMust = (row[7] || 'マスト') === 'マスト';
+                    if (isMust) mustTotal += amount; else optTotal += amount;
+                    const cat = row[0] || 'その他';
+                    catTotals[cat] = (catTotals[cat] || 0) + amount;
+                });
+            });
+            const totalBudget = data._budget_summary?.total_budget ? parseNum(data._budget_summary.total_budget) : (mustTotal + optTotal);
+            const combined = mustTotal + optTotal;
+            const remaining = totalBudget - combined;
+            if (!data._budget_summary) data._budget_summary = {};
+            Object.assign(data._budget_summary, { must_total: mustTotal, option_total: optTotal, must_option_total: combined, remaining, by_category: catTotals });
+            // DOM上のサマリーを更新
+            const wrap = contextEl?.closest('.detail-tab-content') || contextEl?.closest('.editable-table-wrap')?.parentElement;
+            if (!wrap) return;
+            const summaryEl = wrap.querySelector('[data-budget-summary]');
+            if (summaryEl) {
+                const fmt = (v) => (v||0).toLocaleString() + '円';
+                summaryEl.querySelectorAll('[data-summary-key]').forEach(item => {
+                    const key = item.dataset.summaryKey;
+                    const vals = { total_budget: totalBudget, must_total: mustTotal, option_total: optTotal, must_option_total: combined, remaining };
+                    if (key in vals) {
+                        item.querySelector('.summary-value').textContent = fmt(vals[key]);
+                        if (key === 'remaining') item.querySelector('.summary-value').style.color = remaining >= 0 ? '#34d399' : '#ef4444';
+                    }
+                });
+                // カテゴリ別内訳を更新
+                let catHtml = '<div style="margin-top:10px;border-top:1px solid #3f3f46;padding-top:10px;"><div style="font-size:11px;color:#a1a1aa;margin-bottom:6px;">カテゴリ別内訳</div>';
+                catHtml += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+                Object.entries(catTotals).sort((a,b) => b[1]-a[1]).forEach(([cat, total]) => {
+                    catHtml += `<span style="font-size:11px;padding:3px 8px;background:#27272a;border:1px solid #3f3f46;border-radius:4px;color:#d4d4d8;">${cat} <b style="color:#fbbf24;">${fmt(total)}</b></span>`;
+                });
+                catHtml += '</div></div>';
+                let catEl = summaryEl.querySelector('[data-cat-breakdown]');
+                if (!catEl) { catEl = document.createElement('div'); catEl.setAttribute('data-cat-breakdown',''); summaryEl.appendChild(catEl); }
+                catEl.innerHTML = catHtml;
+            }
         }
 
         function switchPreviewTab(tabKey, btnEl) {
