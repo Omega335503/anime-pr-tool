@@ -628,15 +628,19 @@
                 <span id="user-name" class="user-name-link"></span>
             </div>
             <button class="btn-logout" onclick="handleLogout()">ログアウト</button>
-            <button onclick="toggleBugReport()" style="padding:6px 12px;background:transparent;border:1px solid #3f3f46;border-radius:6px;color:#a1a1aa;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">bug_report</span>バグ報告</button>
+            <button onclick="toggleBugReport()" style="padding:6px 12px;background:transparent;border:1px solid #3f3f46;border-radius:6px;color:#a1a1aa;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">feedback</span>フィードバック</button>
         </div>
 
         <!-- バグ報告パネル -->
         <div id="bug-report-panel" style="display:none;position:fixed;top:50px;right:12px;width:280px;background:#18181b;border:1px solid #3f3f46;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.5);z-index:9999;">
             <div style="padding:10px 12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <span style="color:#e4e4e7;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">bug_report</span>バグ報告</span>
+                    <span style="color:#e4e4e7;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">feedback</span>フィードバック</span>
                     <button onclick="toggleBugReport()" style="background:none;border:none;color:#71717a;cursor:pointer;font-size:14px;padding:0;line-height:1;">&times;</button>
+                </div>
+                <div style="display:flex;gap:4px;margin-bottom:6px;">
+                    <button id="fb-type-bug" onclick="setFeedbackType('bug')" style="flex:1;padding:5px;background:#ef4444;border:none;color:#fff;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">バグ報告</button>
+                    <button id="fb-type-feature" onclick="setFeedbackType('feature')" style="flex:1;padding:5px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;border-radius:4px;font-size:11px;cursor:pointer;">改善要望</button>
                 </div>
                 <label id="bug-screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px;background:#09090b;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#71717a;font-size:11px;margin-bottom:6px;">
                     <span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span>
@@ -647,8 +651,8 @@
                     <img id="bug-screenshot-img" style="width:100%;border-radius:4px;border:1px solid #3f3f46;">
                     <button onclick="clearBugScreenshot()" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px;line-height:1;">&times;</button>
                 </div>
-                <textarea id="bug-description" placeholder="どんな問題が起きましたか？" style="width:100%;height:60px;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;resize:vertical;margin-bottom:6px;box-sizing:border-box;"></textarea>
-                <button onclick="submitBugReport()" style="width:100%;padding:7px;background:#ef4444;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                <textarea id="bug-description" placeholder="内容を入力してください" style="width:100%;height:60px;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;resize:vertical;margin-bottom:6px;box-sizing:border-box;"></textarea>
+                <button onclick="submitBugReport()" style="width:100%;padding:7px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
                     <span class="material-symbols-outlined" style="font-size:14px;">send</span>送信
                 </button>
                 <div id="bug-report-result" style="margin-top:4px;font-size:11px;text-align:center;"></div>
@@ -1447,7 +1451,22 @@
             google.accounts.id.disableAutoSelect();
         }
 
-        // ===== バグ報告 =====
+        // ===== フィードバック =====
+        let _feedbackType = 'bug';
+        function setFeedbackType(type) {
+            _feedbackType = type;
+            const bugBtn = document.getElementById('fb-type-bug');
+            const featBtn = document.getElementById('fb-type-feature');
+            if (type === 'bug') {
+                bugBtn.style.background = '#ef4444'; bugBtn.style.color = '#fff'; bugBtn.style.border = 'none';
+                featBtn.style.background = '#27272a'; featBtn.style.color = '#a1a1aa'; featBtn.style.border = '1px solid #3f3f46';
+                document.getElementById('bug-description').placeholder = 'どんな問題が起きましたか？';
+            } else {
+                featBtn.style.background = '#6366f1'; featBtn.style.color = '#fff'; featBtn.style.border = 'none';
+                bugBtn.style.background = '#27272a'; bugBtn.style.color = '#a1a1aa'; bugBtn.style.border = '1px solid #3f3f46';
+                document.getElementById('bug-description').placeholder = 'どんな機能がほしいですか？';
+            }
+        }
         function toggleBugReport() {
             const panel = document.getElementById("bug-report-panel");
             panel.style.display = panel.style.display === "none" ? "block" : "none";
@@ -1478,6 +1497,7 @@
             try {
                 const user = JSON.parse(localStorage.getItem("anime_pr_user") || "{}");
                 await db.collection("bug_reports").add({
+                    type: _feedbackType,
                     description: desc,
                     screenshot: _bugScreenshotData || null,
                     userEmail: user.email || "unknown",
@@ -3116,33 +3136,30 @@
 
             const tweetTasks = allTasks.filter(t => t.type === "tweet");
             const prTasks = allTasks.filter(t => t.type === "pr");
-            const calUid = "cal_" + projectId;
 
             return `<div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #27272a;">
-                <button class="detail-tab-btn active" onclick="switchCalTab('${calUid}','tweet',this)" style="padding:8px 20px;font-size:13px;">ツイート (${tweetTasks.length})</button>
-                <button class="detail-tab-btn" onclick="switchCalTab('${calUid}','pr',this)" style="padding:8px 20px;font-size:13px;">プレスリリース (${prTasks.length})</button>
+                <button class="detail-tab-btn active" onclick="switchCalTab('tweet',this)" style="padding:8px 20px;font-size:13px;">ツイート (${tweetTasks.length})</button>
+                <button class="detail-tab-btn" onclick="switchCalTab('pr',this)" style="padding:8px 20px;font-size:13px;">プレスリリース (${prTasks.length})</button>
             </div>
-            <div id="cal-${calUid}-tweet">${buildTable(tweetTasks, "ツイート")}</div>
-            <div id="cal-${calUid}-pr" style="display:none;">${buildTable(prTasks, "プレスリリース")}</div>`;
+            <div data-cal-panel="tweet">${buildTable(tweetTasks, "ツイート")}</div>
+            <div data-cal-panel="pr" style="display:none;">${buildTable(prTasks, "プレスリリース")}</div>`;
         }
 
-        function switchCalTab(uid, tab, btn) {
-            document.getElementById("cal-" + uid + "-tweet").style.display = tab === "tweet" ? "" : "none";
-            document.getElementById("cal-" + uid + "-pr").style.display = tab === "pr" ? "" : "none";
+        function switchCalTab(tab, btn) {
+            // ボタンのアクティブ状態
             btn.parentElement.querySelectorAll(".detail-tab-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
-            // エディタ側もリセット: ツイート/PR切替時にタスクセレクトを更新
-            const taskSelect = document.getElementById("task-select");
-            if (taskSelect) {
-                // タブに応じてフィルタ
-                window._currentCalTab = tab;
-                updateTaskSelect();
-                // エディタをプレースホルダーに戻す
-                const placeholder = document.getElementById("tweet-editor-placeholder");
-                if (placeholder) placeholder.style.display = "";
-                document.getElementById("tweet-editor-panel").style.display = "none";
-                document.getElementById("legacy-content-form").style.display = "none";
-            }
+            // パネルの表示切替（data属性で検索）
+            const container = btn.closest('.input-section') || btn.parentElement.parentElement;
+            container.querySelectorAll('[data-cal-panel]').forEach(el => {
+                el.style.display = el.dataset.calPanel === tab ? "" : "none";
+            });
+            // エディタをリセット
+            window._currentCalTab = tab;
+            const placeholder = document.getElementById("tweet-editor-placeholder");
+            if (placeholder) placeholder.style.display = "";
+            document.getElementById("tweet-editor-panel").style.display = "none";
+            document.getElementById("legacy-content-form").style.display = "none";
         }
 
         function openTweetFromCalendar(projectId, taskRef) {
