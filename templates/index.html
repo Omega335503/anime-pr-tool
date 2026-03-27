@@ -1583,12 +1583,17 @@
         let generatedContent = "";
 
         // ===== タブ =====
+        const _tabInitialized = {};
         function switchTab(tabId) {
             document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
             document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
             document.getElementById("tab-" + tabId).classList.add("active");
             document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add("active");
-            if (tabId === 'dashboard') renderDashboard();
+            // ダッシュボードは初回のみレンダリング（状態を保持）
+            if (tabId === 'dashboard' && !_tabInitialized.dashboard) {
+                renderDashboard();
+                _tabInitialized.dashboard = true;
+            }
         }
 
         // ===== ダッシュボード =====
@@ -2136,7 +2141,7 @@
             // コンテンツ生成タブのプロジェクト選択を更新
             updateProjectSelect();
             // 共有プロジェクトも読み込み → ダッシュボード更新
-            loadSharedProjects().then(() => renderDashboard()).catch(() => renderDashboard());
+            loadSharedProjects().then(() => { renderDashboard(); _tabInitialized.dashboard = true; }).catch(() => { renderDashboard(); _tabInitialized.dashboard = true; });
         }
 
         function escapeHtml(str) {
