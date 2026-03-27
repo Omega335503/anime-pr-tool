@@ -663,10 +663,10 @@
         <p class="subtitle">アニメ宣伝の施策構築から実行・レポート作成までを一元管理</p>
 
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('dashboard')">ダッシュボード</button>
-            <button class="tab-btn" onclick="switchTab('projects')">プロジェクト管理</button>
-            <button class="tab-btn" onclick="switchTab('content')">宣伝施策の実行</button>
-            <button class="tab-btn" onclick="switchTab('report')">宣伝施策のレポート</button>
+            <button class="tab-btn active" onclick="switchTab('dashboard')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">dashboard</span>ダッシュボード</button>
+            <button class="tab-btn" onclick="switchTab('projects')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">folder</span>プロジェクト管理</button>
+            <button class="tab-btn" onclick="switchTab('content')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">rocket_launch</span>施策実行</button>
+            <button class="tab-btn" onclick="switchTab('report')"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">analytics</span>レポート</button>
         </div>
 
         <!-- タブ0: ダッシュボード -->
@@ -2151,7 +2151,7 @@
             const select = document.getElementById("project-select");
             const projects = getProjects();
             const current = select.value;
-            select.innerHTML = '<option value="">-- 手動入力 --</option>';
+            select.innerHTML = '<option value="">-- プロジェクトを選択 --</option>';
             for (const [id, p] of Object.entries(projects)) {
                 select.innerHTML += `<option value="${id}">${escapeHtml(p.name)}</option>`;
             }
