@@ -3163,38 +3163,53 @@
         }
 
         function openTweetFromCalendar(projectId, taskRef) {
-            // 既にコンテンツタブ内にいる場合はタブ切替不要
+            // コンテンツタブに切替（カレンダーは再レンダリングしない）
             const currentTab = document.querySelector('.tab-btn.active')?.dataset?.tab;
             if (currentTab !== 'content') {
                 switchTab('content');
-                document.getElementById("project-select").value = projectId;
-                applyProject();
+                // プロジェクトが未選択の場合のみセット＆カレンダー描画
+                if (document.getElementById("project-select").value !== projectId) {
+                    document.getElementById("project-select").value = projectId;
+                    applyProject();
+                }
             }
-            // カレンダータブに応じてツイート/PR切替
-            const calTab = window._currentCalTab || 'tweet';
-            const contentType = calTab === 'pr' ? 'press_release' : 'tweet';
-            switchContentType(contentType, true);
+            // task-selectを更新してタスクを選択
             updateTaskSelect();
-            setTimeout(() => {
-                const taskSelect = document.getElementById("task-select");
-                for (const opt of taskSelect.options) {
-                    if (opt.value === taskRef) {
-                        taskSelect.value = taskRef;
-                        applyTask();
-                        break;
-                    }
+            const taskSelect = document.getElementById("task-select");
+            let found = false;
+            for (const opt of taskSelect.options) {
+                if (opt.value === taskRef) {
+                    taskSelect.value = taskRef;
+                    found = true;
+                    break;
                 }
-                // プレースホルダーを非表示、エディタを表示
-                const ph = document.getElementById("tweet-editor-placeholder");
-                if (ph) ph.style.display = "none";
-                if (contentType === 'tweet') {
-                    const panel = document.getElementById("tweet-editor-panel");
-                    if (panel) { panel.style.display = ""; panel.scrollIntoView({ behavior: "smooth", block: "start" }); }
+            }
+            if (found) {
+                // applyTask内でエディタの表示・フィールド設定を行う
+                applyTask();
+            } else {
+                // 手動追加など、task-selectにない場合はツイートエディタを直接開く
+                const calTab = window._currentCalTab || 'tweet';
+                const p = getProjects()[projectId];
+                const e = p?.extracted || {};
+                const draft = p?.tweetDrafts?.[taskRef];
+                if (calTab === 'pr') {
+                    switchContentType('press_release', true);
                 } else {
-                    const form = document.getElementById("legacy-content-form");
-                    if (form) { form.style.display = ""; form.scrollIntoView({ behavior: "smooth", block: "start" }); }
+                    showTweetEditor({
+                        projectName: e.title || p?.name || '',
+                        taskTitle: draft?.taskName || '手動追加',
+                        details: [],
+                        date: draft?.postDate || '',
+                        category: 'X更新',
+                        hashtags: e.hashtags || '',
+                        url: e.official_url || '',
+                        broadcastInfo: e.broadcast_info || '',
+                        extracted: e
+                    });
+                    document.getElementById("tweet-editor-placeholder").style.display = "none";
                 }
-            }, 100);
+            }
         }
 
         function renderGanttChart(timeline, projectName) {
@@ -3322,7 +3337,16 @@
 
             // 自動スクロール: 現在の週が中央に来るようにする
             if (todayColIndex >= 0) {
-                html += `<script>requestAnimationFrame(function(){var el=document.getElementById('${ganttUid}');if(el){var cols=el.querySelectorAll('th.gantt-week');if(cols[${todayColIndex}]){var colLeft=cols[${todayColIndex}].offsetLeft;var colW=cols[${todayColIndex}].offsetWidth;el.scrollLeft=Math.max(0,colLeft-el.offsetWidth/2+colW/2);}}})<\/script>`;
+                setTimeout(() => {
+                    const el = document.getElementById(ganttUid);
+                    if (!el) return;
+                    const cols = el.querySelectorAll('th.gantt-week');
+                    if (cols[todayColIndex]) {
+                        const colLeft = cols[todayColIndex].offsetLeft;
+                        const colW = cols[todayColIndex].offsetWidth;
+                        el.scrollLeft = Math.max(0, colLeft - el.offsetWidth / 2 + colW / 2);
+                    }
+                }, 100);
             }
 
             return html;
