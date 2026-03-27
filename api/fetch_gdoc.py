@@ -152,7 +152,7 @@ def _fetch_docs_api(doc_id, api_key):
 
 
 def _fetch_export(doc_id, doc_type, url):
-    """フォールバック: export URL経由（遅い）"""
+    """フォールバック: export URL経由（複数方式で試行）"""
     import requests as http_requests
 
     headers = {
@@ -163,23 +163,103 @@ def _fetch_export(doc_id, doc_type, url):
 
     if doc_type == 'document':
         export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
-    else:
-        gid_match = re.search(r'gid=(\d+)', url)
-        gid = gid_match.group(1) if gid_match else '0'
-        export_url = f"https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv&gid={gid}"
-
-    log(f"Export fallback: {export_url}")
-    r = http_requests.get(export_url, headers=headers, timeout=10, allow_redirects=True)
-
-    if r.status_code == 404:
-        raise ValueError("ドキュメントが見つかりません")
-    elif r.status_code in (401, 403):
-        raise ValueError("アクセス拒否。共有設定を確認してください")
-    elif r.status_code != 200:
+        r = http_requests.get(export_url, headers=headers, timeout=10, allow_redirects=True)
+        if r.status_code == 200:
+            r.encoding = 'utf-8'
+            return r.text
         raise ValueError(f"HTTP {r.status_code}")
 
-    r.encoding = 'utf-8'
-    return r.text
+    # スプレッドシート: 複数方式で試行
+    gid_match = re.search(r'gid=(\d+)', url)
+    gid = gid_match.group(1) if gid_match else '0'
+
+    # 方式1: 標準export URL
+    export_url = f"https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv&gid={gid}"
+    log(f"Export try 1: standard export")
+    r = http_requests.get(export_url, headers=headers, timeout=10, allow_redirects=True)
+    if r.status_code == 200:
+        r.encoding = 'utf-8'
+        return r.text
+    log(f"Export try 1 failed: {r.status_code}")
+
+    # 方式2: gviz endpoint（アップロードされたxlsxにも対応）
+    gviz_url = f"https://docs.google.com/spreadsheets/d/{doc_id}/gviz/tq?tqx=out:csv&gid={gid}"
+    log(f"Export try 2: gviz endpoint")
+    r2 = http_requests.get(gviz_url, headers=headers, timeout=10, allow_redirects=True)
+    if r2.status_code == 200:
+        r2.encoding = 'utf-8'
+        return r2.text
+    log(f"Export try 2 failed: {r2.status_code}")
+
+    # 方式3: Drive API（ネイティブSheets→CSV変換）
+    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
+    if api_key:
+        drive_url = f"https://www.googleapis.com/drive/v3/files/{doc_id}/export?mimeType=text/csv&key={api_key}"
+        log(f"Export try 3: Drive API export")
+        r3 = http_requests.get(drive_url, timeout=10)
+        if r3.status_code == 200:
+            r3.encoding = 'utf-8'
+            return r3.text
+        log(f"Export try 3 failed: {r3.status_code}")
+
+        # 方式4: Drive APIでxlsxを直接DL → メモリ内でCSV変換
+        dl_url = f"https://www.googleapis.com/drive/v3/files/{doc_id}?alt=media&key={api_key}"
+        log(f"Export try 4: Drive API raw download + xlsx parse")
+        r4 = http_requests.get(dl_url, timeout=15)
+        if r4.status_code == 200:
+            return _parse_xlsx_bytes(r4.content)
+        log(f"Export try 4 failed: {r4.status_code}")
+
+    raise ValueError(f"全ての取得方式が失敗しました (最初のHTTPステータス: {r.status_code})")
+
+
+def _parse_xlsx_bytes(data):
+    """xlsxバイナリをCSV文字列に変換"""
+    import io
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        ws = wb.active
+        lines = []
+        for row in ws.iter_rows(values_only=True):
+            cells = [str(c) if c is not None else '' for c in row]
+            lines.append(','.join(cells))
+        wb.close()
+        return '\n'.join(lines)
+    except ImportError:
+        # openpyxlがない場合、zipから直接xmlを読む簡易パーサー
+        import zipfile
+        import xml.etree.ElementTree as ET
+        zf = zipfile.ZipFile(io.BytesIO(data))
+
+        # shared strings
+        shared = []
+        if 'xl/sharedStrings.xml' in zf.namelist():
+            ss_xml = ET.parse(zf.open('xl/sharedStrings.xml'))
+            ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+            for si in ss_xml.findall('.//s:si', ns):
+                texts = si.findall('.//s:t', ns)
+                shared.append(''.join(t.text or '' for t in texts))
+
+        # sheet1
+        sheet_xml = ET.parse(zf.open('xl/worksheets/sheet1.xml'))
+        ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        lines = []
+        for row_el in sheet_xml.findall('.//s:row', ns):
+            cells = []
+            for cell in row_el.findall('s:c', ns):
+                v_el = cell.find('s:v', ns)
+                val = ''
+                if v_el is not None and v_el.text:
+                    if cell.get('t') == 's':
+                        idx = int(v_el.text)
+                        val = shared[idx] if idx < len(shared) else ''
+                    else:
+                        val = v_el.text
+                cells.append(val)
+            lines.append(','.join(cells))
+        zf.close()
+        return '\n'.join(lines)
 
 
 class handler(BaseHTTPRequestHandler):

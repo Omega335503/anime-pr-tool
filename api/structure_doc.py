@@ -59,6 +59,55 @@ def parse_csv_to_table(csv_text):
     clean_headers = [h for i, h in enumerate(header_row) if i != 1 or not any(r[1].strip() in ("：", ":") for r in rows[1:3] if len(r) > 1)]
     return {"headers": clean_headers, "sections": sections, "release_columns": release_cols}
 
+def structure_budget(content, get_client_fn, extract_json_fn):
+    """宣伝予算表をAIで構造化"""
+    prompt = f"""以下はアニメ作品の宣伝予算表（CSV/テーブルデータ）です。
+これを以下のJSON形式に構造化してください。
+
+## 出力フォーマット（厳密に従ってください）
+```json
+{{
+  "items": [
+    {{
+      "category": "科目（稼働費/制作費/版権費/デザイン費/販促費/イベント費/特殊販促/その他）",
+      "billing_month": "請求月（例: 2026/04）",
+      "vendor": "発注先",
+      "description": "宣伝内容",
+      "period": "実施時期",
+      "estimate": "見込み額（税抜）数値のみ",
+      "actual": "実施金額（税抜）数値のみ、未確定なら空文字",
+      "is_must": true,
+      "note": "補足"
+    }}
+  ],
+  "summary": {{
+    "total_budget": "宣伝予算総額（数値）",
+    "must_total": "マスト費用合計（数値）",
+    "option_total": "オプション費用合計（数値）",
+    "must_option_total": "マスト+オプション合計（数値）",
+    "remaining": "残額（数値）"
+  }}
+}}
+```
+
+## ルール
+- is_must: マスト施策ならtrue、オプションならfalse。判断できない場合はtrue
+- 金額は数値のみ（カンマ・円記号は除去）。不明なら0
+- 空行・合計行・ヘッダー行はitemsに含めない
+- summaryは元データに記載があればそのまま、なければitemsから計算
+
+## 元データ
+{content}"""
+
+    client = get_client_fn()
+    response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+    try:
+        parsed = extract_json_fn(response.text)
+        return parsed
+    except:
+        return {"items": [], "summary": {}, "raw": response.text.strip()}
+
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         auth_err = require_auth_vercel(self)
@@ -83,7 +132,10 @@ class handler(BaseHTTPRequestHandler):
             return
 
         try:
-            if doc_type in ("text_master", "budget"):
+            if doc_type == "budget":
+                parsed = structure_budget(content, get_gemini_client, extract_json_from_response)
+                result = {"structured": parsed}
+            elif doc_type == "text_master":
                 parsed = parse_csv_to_table(content)
                 result = {"structured": parsed}
             else:

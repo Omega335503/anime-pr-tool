@@ -344,17 +344,8 @@
         .tl-cat-badge {
             padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700;
             white-space: nowrap;
+            background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46;
         }
-        .tl-cat-MTG { background: #854d0e33; color: #fbbf24; border: 1px solid #854d0e; }
-        .tl-cat-プレスリリース { background: #166534aa; color: #4ade80; border: 1px solid #166534; }
-        .tl-cat-X更新 { background: #1e3a5faa; color: #60a5fa; border: 1px solid #1e3a5f; }
-        .tl-cat-PV映像, .tl-cat-PV\/映像 { background: #581c87aa; color: #c084fc; border: 1px solid #581c87; }
-        .tl-cat-Web\/HP, .tl-cat-WebHP { background: #064e3baa; color: #34d399; border: 1px solid #064e3b; }
-        .tl-cat-イベント { background: #7f1d1daa; color: #fca5a5; border: 1px solid #7f1d1d; }
-        .tl-cat-制作進行 { background: #3f3f46aa; color: #a1a1aa; border: 1px solid #3f3f46; }
-        .tl-cat-メディア { background: #4338caaa; color: #a5b4fc; border: 1px solid #4338ca; }
-        .tl-cat-コラボ\/グッズ, .tl-cat-コラボグッズ { background: #9a3412aa; color: #fdba74; border: 1px solid #9a3412; }
-        .tl-cat-その他 { background: #27272a; color: #71717a; border: 1px solid #3f3f46; }
         .tl-title-input {
             flex: 1; background: transparent; border: 1px solid transparent; border-radius: 4px;
             color: #fff; font-size: 14px; font-weight: 600; padding: 2px 6px;
@@ -591,6 +582,9 @@
             cursor: pointer; transition: color 0.2s;
         }
         .user-name-link:hover { color: #6366f1; }
+        @media (max-width: 900px) {
+            #content-split-view { grid-template-columns: 1fr !important; }
+        }
     </style>
 </head>
 <body>
@@ -603,7 +597,26 @@
                 <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                 Googleでログイン
             </button>
-            <p class="note">Googleアカウントで安全にログインできます</p>
+
+            <div style="display:flex;align-items:center;gap:12px;margin:20px auto;max-width:300px;">
+                <div style="flex:1;height:1px;background:#3f3f46;"></div>
+                <span style="color:#71717a;font-size:12px;">または</span>
+                <div style="flex:1;height:1px;background:#3f3f46;"></div>
+            </div>
+
+            <!-- メールログインフォーム -->
+            <div id="email-login-form" style="max-width:300px;margin:0 auto;">
+                <input type="email" id="login-email" placeholder="メールアドレス" style="width:100%;padding:10px 14px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+                <input type="password" id="login-password" placeholder="パスワード" style="width:100%;padding:10px 14px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
+                <div style="display:flex;gap:8px;">
+                    <button onclick="emailLogin()" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">ログイン</button>
+                    <button onclick="emailSignup()" style="flex:1;padding:10px;background:#27272a;border:1px solid #3f3f46;color:#e4e4e7;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">新規登録</button>
+                </div>
+                <div id="email-login-error" style="color:#ef4444;font-size:12px;text-align:center;margin-top:8px;min-height:16px;"></div>
+                <button id="reset-password-btn" onclick="resetPassword()" style="display:none;background:none;border:none;color:#6366f1;cursor:pointer;font-size:12px;margin-top:4px;text-decoration:underline;">パスワードをリセット</button>
+            </div>
+
+            <p class="note">Googleアカウントまたはメールアドレスでログインできます</p>
         </div>
     </div>
 
@@ -615,19 +628,52 @@
                 <span id="user-name" class="user-name-link"></span>
             </div>
             <button class="btn-logout" onclick="handleLogout()">ログアウト</button>
+            <button onclick="toggleBugReport()" style="padding:6px 12px;background:transparent;border:1px solid #3f3f46;border-radius:6px;color:#a1a1aa;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">bug_report</span>バグ報告</button>
+        </div>
+
+        <!-- バグ報告パネル -->
+        <div id="bug-report-panel" style="display:none;position:fixed;top:50px;right:12px;width:280px;background:#18181b;border:1px solid #3f3f46;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.5);z-index:9999;">
+            <div style="padding:10px 12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span style="color:#e4e4e7;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">bug_report</span>バグ報告</span>
+                    <button onclick="toggleBugReport()" style="background:none;border:none;color:#71717a;cursor:pointer;font-size:14px;padding:0;line-height:1;">&times;</button>
+                </div>
+                <label id="bug-screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px;background:#09090b;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#71717a;font-size:11px;margin-bottom:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span>
+                    スクショを添付
+                    <input type="file" id="bug-screenshot-input" accept="image/*" style="display:none;" onchange="handleBugScreenshot(this)">
+                </label>
+                <div id="bug-screenshot-preview" style="display:none;margin-bottom:6px;position:relative;">
+                    <img id="bug-screenshot-img" style="width:100%;border-radius:4px;border:1px solid #3f3f46;">
+                    <button onclick="clearBugScreenshot()" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px;line-height:1;">&times;</button>
+                </div>
+                <textarea id="bug-description" placeholder="どんな問題が起きましたか？" style="width:100%;height:60px;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;resize:vertical;margin-bottom:6px;box-sizing:border-box;"></textarea>
+                <button onclick="submitBugReport()" style="width:100%;padding:7px;background:#ef4444;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:14px;">send</span>送信
+                </button>
+                <div id="bug-report-result" style="margin-top:4px;font-size:11px;text-align:center;"></div>
+            </div>
         </div>
 
         <h1>アニメ広報ツール</h1>
-        <p class="subtitle">広報レポートの自動生成 & ツイート・プレスリリースのAI作成</p>
+        <p class="subtitle">アニメ宣伝の施策構築・コンテンツ作成・レポート生成</p>
 
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('report')">広報レポート</button>
-            <button class="tab-btn" onclick="switchTab('content')">コンテンツ生成</button>
+            <button class="tab-btn active" onclick="switchTab('dashboard')">ダッシュボード</button>
             <button class="tab-btn" onclick="switchTab('projects')">プロジェクト管理</button>
+            <button class="tab-btn" onclick="switchTab('content')">宣伝施策の実行</button>
+            <button class="tab-btn" onclick="switchTab('report')">宣伝施策のレポート</button>
         </div>
 
-        <!-- タブ1: 広報レポート -->
-        <div id="tab-report" class="tab-panel active">
+        <!-- タブ0: ダッシュボード -->
+        <div id="tab-dashboard" class="tab-panel active">
+            <div id="dashboard-content" style="min-height:200px;">
+                <p style="color:#52525b;text-align:center;padding:60px 0;">プロジェクトを読み込み中...</p>
+            </div>
+        </div>
+
+        <!-- タブ1: 宣伝施策のレポート -->
+        <div id="tab-report" class="tab-panel">
             <div class="input-section">
                 <div class="form-group">
                     <label for="anime-title">アニメタイトル</label>
@@ -682,119 +728,147 @@
             </div>
         </div>
 
-        <!-- タブ2: コンテンツ生成 -->
+        <!-- タブ2: 宣伝施策の実行 -->
         <div id="tab-content" class="tab-panel">
-            <div class="input-section">
-                <div class="form-group project-selector">
-                    <label>プロジェクトから自動入力</label>
-                    <select id="project-select" onchange="applyProject(); updateTaskSelect();">
-                        <option value="">-- 手動入力 --</option>
+            <!-- プロジェクト選択バー -->
+            <div class="input-section" style="padding:12px 16px;">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                    <select id="project-select" onchange="applyProject(); updateTaskSelect();" style="flex:1;min-width:200px;padding:8px 12px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:13px;">
+                        <option value="">-- プロジェクトを選択 --</option>
                     </select>
-                </div>
-                <div class="form-group" id="task-selector-group" style="display:none;">
-                    <label>宣伝タイムラインから施策を選択</label>
-                    <select id="task-select" onchange="applyTask()" style="width:100%;padding:10px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:13px;">
-                        <option value="">-- 施策を選択 --</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>コンテンツタイプ</label>
-                    <div class="content-type-selector">
+                    <div class="content-type-selector" style="margin:0;">
                         <button class="type-btn active" data-type="tweet" onclick="switchContentType('tweet')">ツイート</button>
                         <button class="type-btn" data-type="press_release" onclick="switchContentType('press_release')">プレスリリース</button>
                     </div>
                 </div>
             </div>
 
-            <!-- ツイート詳細編集パネル -->
-            <div id="tweet-editor-panel" style="display:none;">
-                <div class="input-section" style="border-left:3px solid #6366f1;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <h3 style="color:#e4e4e7;font-size:15px;margin:0;" id="tweet-editor-title">ツイート編集</h3>
-                        <span id="tweet-editor-status" style="padding:3px 10px;border-radius:12px;font-size:11px;background:#27272a;color:#a1a1aa;">下書き</span>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-                        <div class="form-group" style="margin:0;">
-                            <label style="font-size:12px;">投稿日</label>
-                            <input type="date" id="tweet-post-date" onchange="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label style="font-size:12px;">投稿時間</label>
-                            <input type="time" id="tweet-post-time" value="12:00" onchange="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
-                        </div>
-                    </div>
-                    <!-- 施策タイプ別の動的フォーム -->
-                    <div id="tweet-task-fields" style="margin-bottom:8px;"></div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <label style="font-size:12px;">その他メモ</label>
-                        <textarea id="tweet-memo" placeholder="補足事項があれば" oninput="autoSaveTweet()" style="width:100%;height:40px;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;resize:vertical;"></textarea>
-                    </div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <label style="font-size:12px;">ツイート本文</label>
-                            <span id="tweet-char-count" style="font-size:11px;color:#a1a1aa;">0 / 280</span>
-                        </div>
-                        <textarea id="tweet-body" placeholder="ツイート本文をここに入力 or AIで生成" style="width:100%;height:120px;padding:10px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:14px;line-height:1.6;resize:vertical;" oninput="updateTweetCharCount(); autoSaveTweet()"></textarea>
-                    </div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <label style="font-size:12px;">ハッシュタグ</label>
-                        <input type="text" id="tweet-hashtags" placeholder="#ダークサモナーとデキている" oninput="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <label style="font-size:12px;">添付画像</label>
-                        <div id="tweet-images-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;"></div>
-                        <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#27272a;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#a1a1aa;font-size:12px;">
-                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">photo_camera</span> 画像を追加
-                            <input type="file" id="tweet-image-input" accept="image/*" multiple style="display:none;" onchange="handleTweetImages(this)">
-                        </label>
-                    </div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <label style="font-size:12px;">URL</label>
-                        <input type="text" id="tweet-url" placeholder="https://..." oninput="autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <label style="font-size:12px;">ステータス</label>
-                        <select id="tweet-status-select" onchange="updateTweetStatusBadge(); autoSaveTweet()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;">
-                            <option value="draft">下書き</option>
-                            <option value="pending">承認待ち</option>
-                            <option value="approved">承認済み</option>
-                            <option value="posted">投稿済み</option>
+            <!-- 2カラムレイアウト: 左=カレンダー / 右=編集 -->
+            <div id="content-split-view" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+                <!-- 左: 発信カレンダー -->
+                <div id="content-tweet-calendar" style="display:none;"></div>
+                <div id="content-calendar-placeholder" class="input-section" style="text-align:center;padding:40px 20px;">
+                    <span class="material-symbols-outlined" style="font-size:36px;color:#3f3f46;">calendar_month</span>
+                    <p style="color:#52525b;font-size:13px;margin-top:8px;">プロジェクトを選択すると<br>発信カレンダーが表示されます</p>
+                </div>
+
+                <!-- 右: 編集パネル -->
+                <div>
+                    <!-- 施策選択（非表示で残す） -->
+                    <div class="form-group" id="task-selector-group" style="display:none;margin-bottom:12px;">
+                        <select id="task-select" onchange="applyTask()" style="width:100%;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:13px;">
+                            <option value="">-- 施策を選択 --</option>
                         </select>
                     </div>
-                    <div style="display:flex;gap:8px;margin-top:12px;">
-                        <button onclick="aiGenerateTweet()" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">auto_awesome</span> AIでツイート生成</button>
-                        <button onclick="saveTweetDraft(true)" style="padding:10px 20px;background:#22c55e;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">保存</button>
-                    </div>
-                    <div id="tweet-ai-loading" style="display:none;text-align:center;padding:12px;">
-                        <div class="spinner"></div>
-                        <p style="color:#a1a1aa;font-size:12px;margin-top:8px;">AIがツイートを生成中...</p>
-                    </div>
-                </div>
-            </div>
 
-            <!-- 従来のフォーム（プレスリリース用） -->
-            <div id="legacy-content-form">
-                <div class="input-section" id="content-form-section">
-                    <div id="content-form"></div>
-                    <div class="form-group">
-                        <button class="btn-generate" id="btn-content-generate" onclick="generateContent()">コンテンツを生成</button>
+                    <!-- ツイート編集パネル -->
+                    <div id="tweet-editor-panel" style="display:none;">
+                        <div class="input-section" style="border-left:3px solid #6366f1;padding:14px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                <h3 style="color:#e4e4e7;font-size:14px;margin:0;" id="tweet-editor-title">ツイート編集</h3>
+                                <span id="tweet-editor-status" style="padding:2px 8px;border-radius:10px;font-size:10px;background:#27272a;color:#a1a1aa;">下書き</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:11px;">投稿日</label>
+                                    <input type="date" id="tweet-post-date" onchange="autoSaveTweet()" style="width:100%;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:11px;">投稿時間</label>
+                                    <input type="time" id="tweet-post-time" value="12:00" onchange="autoSaveTweet()" style="width:100%;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;">
+                                </div>
+                            </div>
+                            <div id="tweet-task-fields" style="margin-bottom:6px;"></div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label style="font-size:11px;">メモ</label>
+                                <textarea id="tweet-memo" placeholder="補足事項" oninput="autoSaveTweet()" style="width:100%;height:32px;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;resize:vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <label style="font-size:11px;">ツイート本文</label>
+                                    <span id="tweet-char-count" style="font-size:10px;color:#a1a1aa;">0 / 280</span>
+                                </div>
+                                <textarea id="tweet-body" placeholder="ツイート本文をここに入力 or AIで生成" style="width:100%;height:100px;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;line-height:1.5;resize:vertical;" oninput="updateTweetCharCount(); autoSaveTweet()"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label style="font-size:11px;">ハッシュタグ</label>
+                                <input type="text" id="tweet-hashtags" placeholder="例: #作品名" oninput="autoSaveTweet()" style="width:100%;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label style="font-size:11px;">添付画像</label>
+                                <div id="tweet-images-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;"></div>
+                                <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#27272a;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#a1a1aa;font-size:11px;">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">photo_camera</span> 画像を追加
+                                    <input type="file" id="tweet-image-input" accept="image/*" multiple style="display:none;" onchange="handleTweetImages(this)">
+                                </label>
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label style="font-size:11px;">URL</label>
+                                <input type="text" id="tweet-url" placeholder="https://..." oninput="autoSaveTweet()" style="width:100%;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label style="font-size:11px;">ステータス</label>
+                                <select id="tweet-status-select" onchange="updateTweetStatusBadge(); autoSaveTweet()" style="width:100%;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;">
+                                    <option value="draft">下書き</option>
+                                    <option value="pending">承認待ち</option>
+                                    <option value="approved">承認済み</option>
+                                    <option value="posted">投稿済み</option>
+                                </select>
+                            </div>
+                            <div style="display:flex;gap:6px;margin-top:10px;">
+                                <button onclick="aiGenerateTweet()" style="flex:1;padding:8px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AI生成</button>
+                                <button onclick="saveTweetDraft(true)" style="padding:8px 16px;background:#22c55e;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
+                            </div>
+                            <div id="tweet-ai-loading" style="display:none;text-align:center;padding:8px;">
+                                <div class="spinner"></div>
+                                <p style="color:#a1a1aa;font-size:11px;margin-top:6px;">AI生成中...</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="error-msg" id="content-error-msg"></div>
-
-                <div class="loading" id="content-loading">
-                    <div class="spinner"></div>
-                    <p class="loading-text" id="content-loading-text">AIに接続中...</p>
-                </div>
-
-                <div class="result-section" id="content-result">
-                    <div class="actions-bar">
-                        <button class="btn-action" id="btn-content-copy" onclick="copyContent()">コピー</button>
-                        <button class="btn-action" onclick="generateContent()">再生成</button>
+                    <!-- 編集パネル未選択時のプレースホルダー -->
+                    <div id="tweet-editor-placeholder" class="input-section" style="text-align:center;padding:40px 20px;">
+                        <span class="material-symbols-outlined" style="font-size:36px;color:#3f3f46;">edit_note</span>
+                        <p style="color:#52525b;font-size:13px;margin-top:8px;">カレンダーから施策を選択すると<br>編集画面が表示されます</p>
                     </div>
-                    <div class="content-output" id="content-output"></div>
-                    <div class="char-counter" id="char-counter"></div>
+
+                    <!-- 従来のフォーム（プレスリリース用） -->
+                    <div id="legacy-content-form">
+                        <div class="input-section" id="content-form-section" style="border-left:3px solid #22c55e;padding:14px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                <h3 style="color:#e4e4e7;font-size:14px;margin:0;">プレスリリース編集</h3>
+                                <button onclick="aiAutoFillPR()" style="padding:5px 12px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:4px;">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">auto_awesome</span> AI自動入力
+                                </button>
+                            </div>
+                            <div id="pr-ai-loading" style="display:none;text-align:center;padding:8px;">
+                                <div class="spinner"></div>
+                                <p style="color:#a1a1aa;font-size:11px;margin-top:6px;">AI自動入力中...</p>
+                            </div>
+                            <div id="content-form"></div>
+                            <div style="display:flex;gap:6px;margin-top:10px;">
+                                <button class="btn-generate" id="btn-content-generate" onclick="generateContent()" style="flex:1;padding:8px;font-size:12px;">
+                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> プレスリリースを生成
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="error-msg" id="content-error-msg"></div>
+
+                        <div class="loading" id="content-loading">
+                            <div class="spinner"></div>
+                            <p class="loading-text" id="content-loading-text">AIに接続中...</p>
+                        </div>
+
+                        <div class="result-section" id="content-result">
+                            <div class="actions-bar">
+                                <button class="btn-action" id="btn-content-copy" onclick="copyContent()">コピー</button>
+                                <button class="btn-action" onclick="generateContent()">再生成</button>
+                            </div>
+                            <div class="content-output" id="content-output"></div>
+                            <div class="char-counter" id="char-counter"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -805,7 +879,7 @@
                 <p style="font-size:12px;color:#52525b;margin-bottom:16px;">Google Docs/SheetsのURLを入力して作品情報を自動抽出します。<br>※「リンクを知っている全員が閲覧可」に設定してください。</p>
                 <div class="form-group">
                     <label for="pj-name">作品名（管理用）<span class="required">*</span></label>
-                    <input type="text" id="pj-name" placeholder="例: 魔王武装のスレイブマスター">
+                    <input type="text" id="pj-name" placeholder="例: 作品タイトルA">
                 </div>
                 <div class="form-group">
                     <label>宣伝タイムライン（Google Docs）</label>
@@ -859,10 +933,7 @@
             <!-- 登録済みプロジェクト一覧 -->
             <div id="project-list"></div>
 
-            <!-- 共有プロジェクト（project-listの末尾に統合表示） -->
-            <div id="shared-projects-section" style="display:none;">
-                <div id="shared-project-list"></div>
-            </div>
+            <!-- 共有プロジェクトはproject-list内に統合表示 -->
         </div>
     </div>
 
@@ -1205,6 +1276,77 @@
         }
 
         // Firebase認証（ポップアップ→リダイレクトフォールバック）
+        // ===== メールログイン =====
+        async function emailLogin() {
+            const email = document.getElementById("login-email").value.trim();
+            const pw = document.getElementById("login-password").value;
+            const errEl = document.getElementById("email-login-error");
+            errEl.textContent = "";
+            if (!email || !pw) { errEl.textContent = "メールアドレスとパスワードを入力してください"; return; }
+            try {
+                const result = await firebaseAuth.signInWithEmailAndPassword(email, pw);
+                const user = result.user;
+                const token = await user.getIdToken();
+                authToken = token;
+                const userData = { email: user.email, displayName: user.displayName || email.split("@")[0], photoURL: user.photoURL || "", token, uid: user.uid };
+                localStorage.setItem("anime_pr_user", JSON.stringify(userData));
+                document.getElementById("login-overlay").classList.add("hidden");
+                document.getElementById("app-container").style.display = "";
+                initApp(userData);
+            } catch (e) {
+                const code = e.code || "";
+                if (code === "auth/user-not-found") errEl.textContent = "このメールアドレスは登録されていません";
+                else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+                    errEl.textContent = "パスワードが正しくありません";
+                    document.getElementById("reset-password-btn").style.display = "block";
+                }
+                else if (code === "auth/invalid-email") errEl.textContent = "メールアドレスの形式が正しくありません";
+                else if (code === "auth/too-many-requests") errEl.textContent = "試行回数が多すぎます。しばらくしてから再度お試しください";
+                else errEl.textContent = "ログインエラー: " + (e.message || e);
+            }
+        }
+
+        async function emailSignup() {
+            const email = document.getElementById("login-email").value.trim();
+            const pw = document.getElementById("login-password").value;
+            const errEl = document.getElementById("email-login-error");
+            errEl.textContent = "";
+            if (!email || !pw) { errEl.textContent = "メールアドレスとパスワードを入力してください"; return; }
+            if (pw.length < 6) { errEl.textContent = "パスワードは6文字以上で入力してください"; return; }
+            try {
+                const result = await firebaseAuth.createUserWithEmailAndPassword(email, pw);
+                const user = result.user;
+                await user.updateProfile({ displayName: email.split("@")[0] });
+                const token = await user.getIdToken();
+                authToken = token;
+                const userData = { email: user.email, displayName: user.displayName || email.split("@")[0], photoURL: "", token, uid: user.uid };
+                localStorage.setItem("anime_pr_user", JSON.stringify(userData));
+                document.getElementById("login-overlay").classList.add("hidden");
+                document.getElementById("app-container").style.display = "";
+                initApp(userData);
+            } catch (e) {
+                const code = e.code || "";
+                if (code === "auth/email-already-in-use") errEl.textContent = "このメールアドレスは既に登録されています";
+                else if (code === "auth/invalid-email") errEl.textContent = "メールアドレスの形式が正しくありません";
+                else if (code === "auth/weak-password") errEl.textContent = "パスワードが弱すぎます（6文字以上）";
+                else errEl.textContent = "登録エラー: " + (e.message || e);
+            }
+        }
+
+        async function resetPassword() {
+            const email = document.getElementById("login-email").value.trim();
+            const errEl = document.getElementById("email-login-error");
+            if (!email) { errEl.textContent = "メールアドレスを入力してください"; return; }
+            try {
+                await firebaseAuth.sendPasswordResetEmail(email);
+                errEl.style.color = "#4ade80";
+                errEl.textContent = "パスワードリセットメールを送信しました";
+                setTimeout(() => { errEl.style.color = "#ef4444"; }, 3000);
+            } catch (e) {
+                errEl.textContent = "リセットメール送信エラー: " + (e.message || e);
+            }
+        }
+
         function signInWithGoogle() {
             showDebugMsg('signInWithGoogle() called');
             const provider = new firebase.auth.GoogleAuthProvider();
@@ -1310,6 +1452,56 @@
             google.accounts.id.disableAutoSelect();
         }
 
+        // ===== バグ報告 =====
+        function toggleBugReport() {
+            const panel = document.getElementById("bug-report-panel");
+            panel.style.display = panel.style.display === "none" ? "block" : "none";
+        }
+        let _bugScreenshotData = null;
+        function handleBugScreenshot(input) {
+            if (!input.files || !input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                _bugScreenshotData = e.target.result;
+                document.getElementById("bug-screenshot-img").src = _bugScreenshotData;
+                document.getElementById("bug-screenshot-preview").style.display = "block";
+                document.getElementById("bug-screenshot-label").style.display = "none";
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+        function clearBugScreenshot() {
+            _bugScreenshotData = null;
+            document.getElementById("bug-screenshot-preview").style.display = "none";
+            document.getElementById("bug-screenshot-label").style.display = "flex";
+            document.getElementById("bug-screenshot-input").value = "";
+        }
+        async function submitBugReport() {
+            const desc = document.getElementById("bug-description").value.trim();
+            if (!desc) { alert("バグの詳細を入力してください"); return; }
+            const resultEl = document.getElementById("bug-report-result");
+            resultEl.innerHTML = '<span style="color:#a1a1aa;">送信中...</span>';
+            try {
+                const user = JSON.parse(localStorage.getItem("anime_pr_user") || "{}");
+                await db.collection("bug_reports").add({
+                    description: desc,
+                    screenshot: _bugScreenshotData || null,
+                    userEmail: user.email || "unknown",
+                    userName: user.displayName || "unknown",
+                    uid: user.uid || "unknown",
+                    url: location.href,
+                    userAgent: navigator.userAgent,
+                    status: "new",
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                resultEl.innerHTML = '<span style="color:#4ade80;">送信しました！</span>';
+                document.getElementById("bug-description").value = "";
+                clearBugScreenshot();
+                setTimeout(() => { toggleBugReport(); resultEl.innerHTML = ""; }, 2000);
+            } catch (e) {
+                resultEl.innerHTML = '<span style="color:#ef4444;">送信エラー: ' + e.message + '</span>';
+            }
+        }
+
         function checkAuth() {
             try {
                 const saved = JSON.parse(localStorage.getItem("anime_pr_user"));
@@ -1369,35 +1561,107 @@
             document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
             document.getElementById("tab-" + tabId).classList.add("active");
             document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add("active");
+            if (tabId === 'dashboard') renderDashboard();
+        }
+
+        // ===== ダッシュボード =====
+        function renderDashboard() {
+            const el = document.getElementById("dashboard-content");
+            const projects = getProjects();
+            const ownKeys = Object.keys(projects);
+            const sharedItems = _sharedProjectsCache || [];
+
+            const allProjects = [];
+            ownKeys.forEach(id => {
+                const p = projects[id];
+                allProjects.push({ id, name: p.name, timeline: p.structured?.timeline, project: p, shared: false });
+            });
+            sharedItems.forEach(s => {
+                const p = s._projectData;
+                const id = "shared_" + s.ownerUid + "_" + s.projectId;
+                allProjects.push({ id, name: p.name || s.projectId, timeline: p.structured?.timeline, project: p, shared: true, role: s.role });
+            });
+
+            if (allProjects.length === 0) {
+                el.innerHTML = '<div style="text-align:center;padding:60px 0;"><span class="material-symbols-outlined" style="font-size:48px;color:#3f3f46;">dashboard</span><p style="color:#52525b;margin-top:12px;">プロジェクトを登録するとダッシュボードに表示されます</p></div>';
+                return;
+            }
+
+            let html = '';
+            allProjects.forEach((ap, idx) => {
+                const uid = 'dash_' + idx;
+                const hasData = ap.timeline && ap.timeline.length;
+                const sharedLabel = ap.shared ? ' <span style="font-size:10px;color:#71717a;font-weight:400;">(共有)</span>' : '';
+                html += `<div class="input-section" style="margin-bottom:12px;padding:0;">`;
+                html += `<div onclick="toggleDashAccordion('${uid}')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;">`;
+                html += `<div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined dash-arrow" id="dash-arrow-${uid}" style="font-size:16px;color:#71717a;transition:transform 0.2s;">chevron_right</span><span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(ap.name)}</span>${sharedLabel}</div>`;
+                if (!hasData) html += `<span style="font-size:11px;color:#52525b;">データなし</span>`;
+                html += `</div>`;
+                html += `<div id="dash-body-${uid}" style="display:none;border-top:1px solid #27272a;padding:16px 20px;">`;
+                if (hasData) {
+                    html += `<div class="detail-tab-nav" style="margin-bottom:12px;">`;
+                    html += `<button class="detail-tab-btn active" onclick="switchDashTab('${uid}','gantt',this)">ガントチャート</button>`;
+                    html += `<button class="detail-tab-btn" onclick="switchDashTab('${uid}','calendar',this)">発信カレンダー</button>`;
+                    html += `</div>`;
+                    html += `<div id="dash-tab-${uid}-gantt">${renderGanttChart(ap.timeline, ap.name)}</div>`;
+                    html += `<div id="dash-tab-${uid}-calendar" style="display:none;">${renderTweetCalendar(ap.id, ap.project)}</div>`;
+                } else {
+                    html += `<p style="color:#52525b;text-align:center;padding:12px;">タイムラインデータが未登録です</p>`;
+                }
+                html += `</div></div>`;
+            });
+
+            el.innerHTML = html;
+        }
+
+        function toggleDashAccordion(uid) {
+            const body = document.getElementById('dash-body-' + uid);
+            const arrow = document.getElementById('dash-arrow-' + uid);
+            const open = body.style.display !== 'none';
+            body.style.display = open ? 'none' : 'block';
+            arrow.style.transform = open ? '' : 'rotate(90deg)';
+        }
+
+        function switchDashTab(uid, tab, btnEl) {
+            btnEl.closest('.detail-tab-nav').querySelectorAll('.detail-tab-btn').forEach(b => b.classList.remove('active'));
+            btnEl.classList.add('active');
+            document.getElementById('dash-tab-' + uid + '-gantt').style.display = tab === 'gantt' ? '' : 'none';
+            document.getElementById('dash-tab-' + uid + '-calendar').style.display = tab === 'calendar' ? '' : 'none';
         }
 
         // ===== コンテンツ生成 =====
         const CONTENT_FIELDS = {
             tweet: [
-                { id: "title", label: "作品タイトル", type: "text", required: true, placeholder: "例: 魔王武装のスレイブマスター" },
+                { id: "title", label: "作品タイトル", type: "text", required: true, placeholder: "例: 作品タイトルA" },
                 { id: "announcement_type", label: "告知内容", type: "select", required: true,
                   options: ["放送情報", "キャスト発表", "PV公開", "イベント告知", "グッズ情報", "コラボ発表", "その他"] },
                 { id: "key_info", label: "主要情報（日時・チャンネル・出演者など）", type: "textarea", required: true,
                   placeholder: "例:\n2026年1月放送開始\nTOKYO MX 毎週金曜24:00\nBS11 毎週金曜24:30" },
-                { id: "hashtag", label: "ハッシュタグ", type: "text", required: false, placeholder: "例: #魔王武装 #maoumusou" },
+                { id: "hashtag", label: "ハッシュタグ", type: "text", required: false, placeholder: "例: #作品名 #sakuhin" },
                 { id: "url", label: "公式サイトURL", type: "text", required: false, placeholder: "https://..." },
                 { id: "tone", label: "トーン", type: "select", required: false, options: ["公式", "カジュアル", "盛り上げ"] },
             ],
             press_release: [
-                { id: "title", label: "作品タイトル", type: "text", required: true, placeholder: "例: GATE SEASON2" },
+                { id: "title", label: "作品タイトル", type: "text", required: true, placeholder: "例: 作品タイトル" },
                 { id: "headline", label: "見出し", type: "text", required: true,
-                  placeholder: "例: TVアニメ『GATE SEASON2』2026年放送決定！ティザービジュアル公開" },
-                { id: "lead_summary", label: "リード文の要点（誰が・何を・いつ）", type: "textarea", required: true,
-                  placeholder: "例:\n株式会社〇〇が制作するTVアニメ第2期の制作決定\n2026年7月よりTOKYO MXほかにて放送\nティザービジュアルとPVを本日公開" },
+                  placeholder: "例: TVアニメ『〇〇』2026年放送決定！" },
+                { id: "lead_who", label: "誰が（主体）", type: "text", required: true,
+                  placeholder: "例: 株式会社〇〇 / 製作委員会" },
+                { id: "lead_what", label: "何を（発表内容）", type: "text", required: true,
+                  placeholder: "例: TVアニメ第2期の制作決定 / ティザーPV公開" },
+                { id: "lead_when", label: "いつ（時期・日程）", type: "text", required: false,
+                  placeholder: "例: 2026年7月よりTOKYO MXほかにて放送" },
+                { id: "lead_detail", label: "補足情報", type: "textarea", required: false,
+                  placeholder: "その他の要点があれば" },
                 { id: "staff_cast", label: "スタッフ＆キャスト", type: "textarea", required: false,
-                  placeholder: "例:\n監督: 〇〇\nシリーズ構成: 〇〇\n主人公役: 〇〇(CV.〇〇)" },
+                  placeholder: "例:\n監督: 〇〇\nシリーズ構成: 〇〇" },
                 { id: "synopsis", label: "あらすじ", type: "textarea", required: false, placeholder: "作品のあらすじ・世界観" },
                 { id: "visual_info", label: "ビジュアル情報", type: "textarea", required: false,
-                  placeholder: "公開されるビジュアルの説明（キャラクター、構図など）" },
+                  placeholder: "公開されるビジュアルの説明" },
                 { id: "event_info", label: "イベント・キャンペーン情報", type: "textarea", required: false,
                   placeholder: "関連イベントやキャンペーンの詳細" },
                 { id: "source_material", label: "原作情報", type: "text", required: false,
-                  placeholder: "例: 原作小説（アルファポリス刊）シリーズ累計750万部" },
+                  placeholder: "例: 原作小説 シリーズ累計〇万部" },
                 { id: "official_links", label: "公式リンク・SNS", type: "textarea", required: false,
                   placeholder: "公式サイトURL、公式X、ハッシュタグなど" },
             ],
@@ -1419,19 +1683,54 @@
 
         function renderContentForm(type) {
             const container = document.getElementById("content-form");
-            container.innerHTML = CONTENT_FIELDS[type].map(f => {
+            const fields = CONTENT_FIELDS[type].map(f => {
                 const req = f.required ? '<span class="required">*</span>' : '';
                 let input = "";
+                const inputStyle = "width:100%;padding:6px 8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;";
                 if (f.type === "text") {
-                    input = `<input type="text" id="cf-${f.id}" placeholder="${f.placeholder || ''}" autocomplete="off">`;
+                    input = `<input type="text" id="cf-${f.id}" placeholder="${f.placeholder || ''}" autocomplete="off" style="${inputStyle}">`;
                 } else if (f.type === "textarea") {
-                    input = `<textarea id="cf-${f.id}" placeholder="${f.placeholder || ''}" rows="3"></textarea>`;
+                    input = `<textarea id="cf-${f.id}" placeholder="${f.placeholder || ''}" rows="2" style="${inputStyle}height:auto;resize:vertical;"></textarea>`;
                 } else if (f.type === "select") {
                     const opts = f.options.map(o => `<option value="${o}">${o}</option>`).join("");
-                    input = `<select id="cf-${f.id}">${opts}</select>`;
+                    input = `<select id="cf-${f.id}" style="${inputStyle}">${opts}</select>`;
                 }
-                return `<div class="form-group"><label for="cf-${f.id}">${f.label}${req}</label>${input}</div>`;
+                return `<div class="form-group" style="margin-bottom:6px;"><label style="font-size:11px;">${f.label}${req}</label>${input}</div>`;
             }).join("");
+
+            // リード文グループ化（press_releaseの場合）
+            let html = '';
+            if (type === 'press_release') {
+                const leadFields = ['lead_who', 'lead_what', 'lead_when', 'lead_detail'];
+                const otherFieldsHtml = CONTENT_FIELDS[type].filter(f => !leadFields.includes(f.id)).map(f => {
+                    const req = f.required ? '<span class="required">*</span>' : '';
+                    let input = "";
+                    const inputStyle = "width:100%;padding:6px 8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;";
+                    if (f.type === "text") input = `<input type="text" id="cf-${f.id}" placeholder="${f.placeholder || ''}" autocomplete="off" style="${inputStyle}">`;
+                    else if (f.type === "textarea") input = `<textarea id="cf-${f.id}" placeholder="${f.placeholder || ''}" rows="2" style="${inputStyle}height:auto;resize:vertical;"></textarea>`;
+                    else if (f.type === "select") { const opts = f.options.map(o => `<option value="${o}">${o}</option>`).join(""); input = `<select id="cf-${f.id}" style="${inputStyle}">${opts}</select>`; }
+                    return `<div class="form-group" style="margin-bottom:6px;"><label style="font-size:11px;">${f.label}${req}</label>${input}</div>`;
+                }).join("");
+
+                const leadFieldsHtml = CONTENT_FIELDS[type].filter(f => leadFields.includes(f.id)).map(f => {
+                    const req = f.required ? '<span class="required">*</span>' : '';
+                    const inputStyle = "width:100%;padding:6px 8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;";
+                    let input = f.type === "textarea"
+                        ? `<textarea id="cf-${f.id}" placeholder="${f.placeholder || ''}" rows="2" style="${inputStyle}height:auto;resize:vertical;"></textarea>`
+                        : `<input type="text" id="cf-${f.id}" placeholder="${f.placeholder || ''}" style="${inputStyle}">`;
+                    return `<div class="form-group" style="margin-bottom:6px;"><label style="font-size:11px;">${f.label}${req}</label>${input}</div>`;
+                }).join("");
+
+                html = otherFieldsHtml.split('</div>').slice(0, 2).join('</div>') + '</div>';
+                html += `<div style="border:1px solid #3f3f46;border-radius:8px;padding:10px;margin-bottom:8px;background:rgba(99,102,241,0.05);">
+                    <label style="font-size:11px;color:#a1a1aa;margin-bottom:6px;display:block;">リード文の要素</label>
+                    ${leadFieldsHtml}
+                </div>`;
+                html += otherFieldsHtml.split('</div>').slice(2).join('</div>');
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = fields;
+            }
         }
 
         function collectFormData() {
@@ -1742,18 +2041,16 @@
                     const docs = p.documents || {};
                     const tags = [e.hashtags, e.official_url ? "公式サイトあり" : ""].filter(Boolean);
 
-                    // 5タブ（3資料 + ガントチャート + ツイートカレンダー）
+                    // 3タブ（資料のみ。ガントチャート・発信カレンダーはダッシュボードに移動）
                     const docTabs = [
                         { key: "timeline", label: "宣伝タイムライン" },
                         { key: "text_master", label: "テキストマスター" },
                         { key: "budget", label: "宣伝予算表" },
-                        { key: "gantt", label: "ガントチャート" },
-                        { key: "tweet_calendar", label: "発信カレンダー" },
                     ];
                     const expUrls = p.exported_urls || {};
                     const tabNav = docTabs.map((t, i) => {
                         const expUrl = expUrls[t.key];
-                        const linkBtn = expUrl ? ` <a href="${escapeHtml(expUrl)}" target="_blank" rel="noopener" class="src-link-btn" title="整形版を開く" onclick="event.stopPropagation()">↗</a>` : '';
+                        const linkBtn = expUrl ? ` <a href="${escapeHtml(expUrl)}" target="_blank" rel="noopener" class="src-link-btn" title="Googleで開く" onclick="event.stopPropagation()">↗</a>` : '';
                         return `<button class="detail-tab-btn ${i === 0 ? 'active' : ''}" onclick="switchDetailTab('${id}', '${t.key}', this)">${t.label}${linkBtn}</button>`;
                     }).join('');
                     const tabContents = docTabs.map((t, i) => {
@@ -1807,8 +2104,8 @@
 
             // コンテンツ生成タブのプロジェクト選択を更新
             updateProjectSelect();
-            // 共有プロジェクトも読み込み
-            loadSharedProjects();
+            // 共有プロジェクトも読み込み → ダッシュボード更新
+            loadSharedProjects().then(() => renderDashboard()).catch(() => renderDashboard());
         }
 
         function escapeHtml(str) {
@@ -2046,7 +2343,8 @@
             if (!data) return '<div class="detail-no-data">この資料は登録されていません</div>';
             if (typeof data === 'string') return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
             if (docType === 'timeline') return renderTimeline(data, editable, projectId);
-            if (docType === 'text_master' || docType === 'budget') return renderTable(data, editable, projectId);
+            if (docType === 'text_master') return renderTable(data, editable, projectId);
+            if (docType === 'budget') return renderBudgetTable(data, editable, projectId);
             return '<div class="detail-no-data">未対応の形式です</div>';
         }
 
@@ -2317,6 +2615,70 @@
             return html;
         }
 
+        function renderBudgetTable(data, editable, projectId) {
+            // 新フォーマット: { items: [...], summary: {...} }
+            if (data && data.items) {
+                const fmt = (v) => {
+                    const n = parseInt(String(v).replace(/[,，円¥]/g, ''));
+                    return isNaN(n) ? (v || '-') : n.toLocaleString() + '円';
+                };
+                let html = '<div class="editable-table-wrap"><table class="editable-table">';
+                html += '<thead><tr>';
+                ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'].forEach(h => {
+                    html += `<th style="white-space:nowrap;font-size:11px;">${h}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                const mustItems = data.items.filter(i => i.is_must !== false);
+                const optItems = data.items.filter(i => i.is_must === false);
+                const renderItems = (items, label) => {
+                    if (items.length === 0) return '';
+                    let h = `<tr class="section-header"><td colspan="9" style="font-weight:700;padding:8px 10px;background:#27272a;color:#a1a1aa;">【${label}】</td></tr>`;
+                    items.forEach(item => {
+                        h += '<tr>';
+                        h += `<td>${escapeHtml(item.category || '')}</td>`;
+                        h += `<td style="white-space:nowrap;">${escapeHtml(item.billing_month || '')}</td>`;
+                        h += `<td>${escapeHtml(item.vendor || '')}</td>`;
+                        h += `<td>${escapeHtml(item.description || '')}</td>`;
+                        h += `<td style="white-space:nowrap;">${escapeHtml(item.period || '')}</td>`;
+                        h += `<td style="text-align:right;white-space:nowrap;">${fmt(item.estimate)}</td>`;
+                        h += `<td style="text-align:right;white-space:nowrap;">${fmt(item.actual)}</td>`;
+                        h += `<td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${item.is_must !== false ? '#3b82f6' : '#a855f7'};color:#fff;">${item.is_must !== false ? 'マスト' : 'オプション'}</span></td>`;
+                        h += `<td style="font-size:11px;color:#a1a1aa;">${escapeHtml(item.note || '')}</td>`;
+                        h += '</tr>';
+                    });
+                    return h;
+                };
+                html += renderItems(mustItems, 'マスト施策');
+                html += renderItems(optItems, 'オプション施策');
+                html += '</tbody></table></div>';
+
+                // サマリー
+                if (data.summary) {
+                    const s = data.summary;
+                    html += '<div style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
+                    html += '<div style="font-weight:700;color:#e4e4e7;margin-bottom:8px;">予算サマリー</div>';
+                    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">';
+                    const items = [
+                        { label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
+                        { label: 'マスト費用', value: s.must_total, color: '#f97316' },
+                        { label: 'オプション費用', value: s.option_total, color: '#a855f7' },
+                        { label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
+                        { label: '残額', value: s.remaining, color: parseInt(String(s.remaining).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
+                    ];
+                    items.forEach(i => {
+                        html += `<div style="padding:8px;background:#27272a;border-radius:6px;">`;
+                        html += `<div style="font-size:10px;color:#a1a1aa;">${i.label}</div>`;
+                        html += `<div style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div>`;
+                        html += `</div>`;
+                    });
+                    html += '</div></div>';
+                }
+                return html;
+            }
+            // フォールバック: 旧フォーマット（headers/sections形式）
+            return renderTable(data, editable, projectId);
+        }
+
         // テーブルデータ取得ヘルパー（pendingExtract or 保存済みプロジェクト両対応）
         function _getTableData(el) {
             const tabContent = el.closest('.detail-tab-content');
@@ -2536,10 +2898,7 @@
                 approved: { label: "承認済み", bg: "#14532d", color: "#4ade80" },
                 posted: { label: "投稿済み", bg: "#1e3a5f", color: "#60a5fa" }
             };
-            const catColors = {
-                "X更新": "#1d9bf0", "SNS更新": "#2563eb", "プレスリリース": "#16a34a", "制作物": "#9333ea",
-                "WEB/HP": "#0891b2", "イベント": "#ea580c",
-            };
+            const catColors = {}; // 統一色: #6366f1（紫）をデフォルトで使用
 
             // 全施策を展開（X更新/SNS更新 → ツイート、プレスリリース → PR）
             const TWEET_CATS = ["X更新"];
@@ -2658,7 +3017,6 @@
             updateTaskSelect();
             setTimeout(() => {
                 const taskSelect = document.getElementById("task-select");
-                // taskRefに一致するオプションを選択
                 for (const opt of taskSelect.options) {
                     if (opt.value === taskRef) {
                         taskSelect.value = taskRef;
@@ -2666,6 +3024,12 @@
                         break;
                     }
                 }
+                // プレースホルダーを非表示に
+                const ph = document.getElementById("tweet-editor-placeholder");
+                if (ph) ph.style.display = "none";
+                // エディタにスクロール
+                const editor = document.getElementById("tweet-editor-panel");
+                if (editor) editor.scrollIntoView({ behavior: "smooth", block: "start" });
             }, 100);
         }
 
@@ -2714,9 +3078,23 @@
                 catEvents[target][key].push({ text: entry.title || "", idx });
             });
 
+            // 今日の位置を計算（monthsの何番目の何週目か）
+            const todayDate = new Date();
+            const todayYear = todayDate.getFullYear();
+            const todayMonth = todayDate.getMonth() + 1;
+            const todayWeek = Math.min(Math.floor((todayDate.getDate() - 1) / 7), 3);
+            let todayColIndex = -1;
+            months.forEach((m, mi) => {
+                if (m.year === todayYear && m.month === todayMonth) {
+                    todayColIndex = mi * 4 + todayWeek;
+                }
+            });
+
+            const ganttUid = 'gantt_' + Math.random().toString(36).slice(2, 8);
+
             // テーブル
             let html = '<div class="gantt-layout">';
-            html += '<div class="gantt-main"><div class="gantt-wrapper"><table class="gantt-table">';
+            html += `<div class="gantt-main"><div class="gantt-wrapper" id="${ganttUid}"><table class="gantt-table">`;
 
             // 年ヘッダー
             html += '<tr><th class="gantt-cat"></th>';
@@ -2729,28 +3107,40 @@
             html += '</tr>';
 
             html += '<tr><th class="gantt-cat"></th>';
-            months.forEach(() => { for (let w = 1; w <= 4; w++) html += `<th class="gantt-week">${w}W</th>`; });
+            let colIdx = 0;
+            months.forEach(m => {
+                for (let w = 1; w <= 4; w++) {
+                    const isToday = colIdx === todayColIndex;
+                    html += `<th class="gantt-week" style="${isToday ? 'background:rgba(234,179,8,0.3);color:#fbbf24;font-weight:700;' : ''}">${w}W</th>`;
+                    colIdx++;
+                }
+            });
             html += '</tr>';
 
+            const todayBg = 'background:rgba(234,179,8,0.08);';
             CATEGORIES.forEach(catName => {
                 const events = catEvents[catName];
                 const eventKeys = Object.keys(events);
                 if (!eventKeys.length) {
                     html += `<tr><td class="gantt-cat gantt-cat-${catName}">${catName}</td>`;
-                    months.forEach(() => { for (let w = 0; w < 4; w++) html += '<td></td>'; });
+                    let ci = 0;
+                    months.forEach(() => { for (let w = 0; w < 4; w++) { html += `<td${ci === todayColIndex ? ` style="${todayBg}"` : ''}></td>`; ci++; } });
                     html += '</tr>';
                     return;
                 }
                 const maxItems = Math.max(...Object.values(events).map(v => v.length), 1);
                 for (let row = 0; row < maxItems; row++) {
                     html += `<tr><td class="gantt-cat gantt-cat-${catName}">${row === 0 ? catName : ''}</td>`;
+                    let ci = 0;
                     months.forEach(m => {
                         for (let w = 0; w < 4; w++) {
                             const key = `${m.month}-${w}`;
                             const items = events[key] || [];
+                            const isTodayCol = ci === todayColIndex;
                             if (row < items.length) {
-                                html += `<td class="gantt-event" onclick="showGanttDetail(${items[row].idx}, this)" title="${items[row].text}">${items[row].text}</td>`;
-                            } else { html += '<td></td>'; }
+                                html += `<td class="gantt-event" style="${isTodayCol ? todayBg : ''}" onclick="showGanttDetail(${items[row].idx}, this)" title="${items[row].text}">${items[row].text}</td>`;
+                            } else { html += `<td${isTodayCol ? ` style="${todayBg}"` : ''}></td>`; }
+                            ci++;
                         }
                     });
                     html += '</tr>';
@@ -2765,6 +3155,12 @@
             html += '</div>';
 
             html += '</div>';
+
+            // 自動スクロール: 現在の週が中央に来るようにする
+            if (todayColIndex >= 0) {
+                html += `<script>requestAnimationFrame(function(){var el=document.getElementById('${ganttUid}');if(el){var cols=el.querySelectorAll('th.gantt-week');if(cols[${todayColIndex}]){var colLeft=cols[${todayColIndex}].offsetLeft;var colW=cols[${todayColIndex}].offsetWidth;el.scrollLeft=Math.max(0,colLeft-el.offsetWidth/2+colW/2);}}})<\/script>`;
+            }
+
             return html;
         }
 
@@ -2941,10 +3337,31 @@
         function applyProject() {
             const select = document.getElementById("project-select");
             const projectId = select.value;
-            if (!projectId) return;
+            const calendarEl = document.getElementById("content-tweet-calendar");
+            const calPlaceholder = document.getElementById("content-calendar-placeholder");
+            const editorPlaceholder = document.getElementById("tweet-editor-placeholder");
+
+            if (!projectId) {
+                if (calendarEl) calendarEl.style.display = "none";
+                if (calPlaceholder) calPlaceholder.style.display = "";
+                if (editorPlaceholder) editorPlaceholder.style.display = "";
+                document.getElementById("tweet-editor-panel").style.display = "none";
+                return;
+            }
 
             const projects = getProjects();
             const p = projects[projectId];
+
+            // 発信カレンダーを表示
+            if (calendarEl && p) {
+                calendarEl.innerHTML = '<div class="input-section" style="max-height:75vh;overflow-y:auto;padding:12px;">' +
+                    '<h3 style="font-size:13px;color:#e4e4e7;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span>発信カレンダー</h3>' +
+                    renderTweetCalendar(projectId, p) +
+                    '</div>';
+                calendarEl.style.display = "block";
+                if (calPlaceholder) calPlaceholder.style.display = "none";
+            }
+
             if (!p || !p.extracted) return;
 
             const e = p.extracted;
@@ -2954,7 +3371,6 @@
                 setField("title", e.title);
                 setField("hashtag", e.hashtags);
                 setField("url", e.official_url);
-                // key_infoには放送情報やキャスト等を詰める
                 const keyParts = [];
                 if (e.broadcast_info) keyParts.push(e.broadcast_info);
                 if (e.cast) keyParts.push(e.cast);
@@ -2966,9 +3382,7 @@
                 setField("source_material", e.source_material);
                 const links = [e.official_url, e.official_x, e.hashtags].filter(Boolean).join("\n");
                 setField("official_links", links);
-                // リード文の要点
-                const lead = [e.broadcast_info].filter(Boolean).join("\n");
-                if (lead) setField("lead_summary", lead);
+                if (e.broadcast_info) setField("lead_when", e.broadcast_info);
             }
         }
 
@@ -3082,7 +3496,9 @@
                 document.getElementById("legacy-content-form").style.display = "";
                 setField("title", e.title || p.name);
                 setField("headline", taskTitle || "");
-                setField("lead_summary", [taskTitle, ...details.slice(0, 5)].filter(Boolean).join("\n"));
+                setField("lead_what", taskTitle || "");
+                if (details.length > 0) setField("lead_detail", details.slice(0, 5).join("\n"));
+                if (e.broadcast_info) setField("lead_when", e.broadcast_info);
                 setField("staff_cast", [e.staff, e.cast].filter(Boolean).join("\n"));
                 setField("synopsis", e.synopsis || "");
                 setField("source_material", e.source_material || "");
@@ -3459,6 +3875,54 @@ ${fieldDefs}
         function removeTweetImage(idx, el) {
             _tweetImages.splice(idx, 1);
             el.remove();
+        }
+
+        async function aiAutoFillPR() {
+            const projectId = document.getElementById("project-select").value;
+            if (!projectId) { alert("プロジェクトを選択してください"); return; }
+            const p = getProjects()[projectId];
+            if (!p?.extracted) { alert("プロジェクトの作品情報がありません"); return; }
+
+            const taskSelect = document.getElementById("task-select");
+            const taskRef = taskSelect.value;
+            let taskName = "";
+            if (taskRef) {
+                const opt = taskSelect.options[taskSelect.selectedIndex];
+                taskName = opt ? opt.textContent : "";
+            }
+
+            const loading = document.getElementById("pr-ai-loading");
+            loading.style.display = "";
+
+            try {
+                const e = p.extracted;
+                const resp = await fetch("/api/ai_fill", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + authToken },
+                    body: JSON.stringify({
+                        type: "press_release_autofill",
+                        title: e.title,
+                        task: taskName,
+                        extracted: { broadcast_info: e.broadcast_info, cast: e.cast, staff: e.staff, synopsis: e.synopsis, source_material: e.source_material, official_url: e.official_url, hashtags: e.hashtags }
+                    })
+                });
+                const data = await resp.json();
+                if (data.result) {
+                    const r = typeof data.result === "string" ? JSON.parse(data.result) : data.result;
+                    if (r.headline) setField("headline", r.headline);
+                    if (r.lead_who) setField("lead_who", r.lead_who);
+                    if (r.lead_what) setField("lead_what", r.lead_what);
+                    if (r.lead_when) setField("lead_when", r.lead_when);
+                    if (r.lead_detail) setField("lead_detail", r.lead_detail);
+                    if (r.staff_cast) setField("staff_cast", r.staff_cast);
+                    if (r.synopsis) setField("synopsis", r.synopsis);
+                    if (r.official_links) setField("official_links", r.official_links);
+                }
+            } catch (e) {
+                alert("AI自動入力エラー: " + e.message);
+            } finally {
+                loading.style.display = "none";
+            }
         }
 
         async function aiGenerateTweet() {
@@ -3973,8 +4437,7 @@ ${fieldDefs}
             appLog("info", "Share", "loadSharedProjects called, email=" + (user?.email || "null"));
             if (!user || !user.email) { appLog("warn", "Share", "No user/email, skipping"); return; }
 
-            const section = document.getElementById("shared-projects-section");
-            const list = document.getElementById("shared-project-list");
+            // 共有プロジェクトはproject-listに統合表示
 
             try {
                 const queryEmail = user.email.toLowerCase();
@@ -3986,7 +4449,6 @@ ${fieldDefs}
                 appLog("info", "Share", "Query result: " + snapshot.size + " docs, empty=" + snapshot.empty);
 
                 if (snapshot.empty) {
-                    section.style.display = "none";
                     _sharedProjectsCache = [];
                     return;
                 }
@@ -4064,9 +4526,7 @@ ${fieldDefs}
                         { key: "timeline", label: "宣伝タイムライン" },
                         { key: "text_master", label: "テキストマスター" },
                         { key: "budget", label: "宣伝予算表" },
-                        { key: "gantt", label: "ガントチャート" },
-                        { key: "tweet_calendar", label: "発信カレンダー" }
-                    ]; // 全タブ常に表示（データなしは「未登録」表示）
+                    ]; // ガントチャート・発信カレンダーはダッシュボードに移動
 
                     const tabNav = docTabs.map((t, i) =>
                         `<button class="detail-tab-btn ${i===0?'active':''}" onclick="switchDetailTab('${id}','${t.key}',this)">${t.label}</button>`
@@ -4202,7 +4662,7 @@ ${fieldDefs}
                 </div>
                 <div style="margin-bottom:8px;">
                     <label style="font-size:11px;color:#71717a;display:block;">会社名</label>
-                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: RASEN株式会社" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;box-sizing:border-box;">
+                    <input id="profile-edit-company" value="${escapeHtml(company)}" placeholder="例: 株式会社サンプル" style="width:100%;padding:6px 10px;background:#18181b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;margin-top:2px;box-sizing:border-box;">
                 </div>
                 <button onclick="saveProfileEdits()" style="padding:6px 16px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-size:12px;cursor:pointer;">保存</button>
                 <span id="profile-save-msg" style="color:#4ade80;font-size:11px;margin-left:8px;display:none;">✓ 保存しました</span>
