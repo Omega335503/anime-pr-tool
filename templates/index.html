@@ -2616,67 +2616,65 @@
         }
 
         function renderBudgetTable(data, editable, projectId) {
-            // 新フォーマット: { items: [...], summary: {...} }
-            if (data && data.items) {
-                const fmt = (v) => {
-                    const n = parseInt(String(v).replace(/[,，円¥]/g, ''));
-                    return isNaN(n) ? (v || '-') : n.toLocaleString() + '円';
-                };
-                let html = '<div class="editable-table-wrap"><table class="editable-table">';
-                html += '<thead><tr>';
-                ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'].forEach(h => {
-                    html += `<th style="white-space:nowrap;font-size:11px;">${h}</th>`;
-                });
-                html += '</tr></thead><tbody>';
-                const mustItems = data.items.filter(i => i.is_must !== false);
-                const optItems = data.items.filter(i => i.is_must === false);
-                const renderItems = (items, label) => {
-                    if (items.length === 0) return '';
-                    let h = `<tr class="section-header"><td colspan="9" style="font-weight:700;padding:8px 10px;background:#27272a;color:#a1a1aa;">【${label}】</td></tr>`;
-                    items.forEach(item => {
-                        h += '<tr>';
-                        h += `<td>${escapeHtml(item.category || '')}</td>`;
-                        h += `<td style="white-space:nowrap;">${escapeHtml(item.billing_month || '')}</td>`;
-                        h += `<td>${escapeHtml(item.vendor || '')}</td>`;
-                        h += `<td>${escapeHtml(item.description || '')}</td>`;
-                        h += `<td style="white-space:nowrap;">${escapeHtml(item.period || '')}</td>`;
-                        h += `<td style="text-align:right;white-space:nowrap;">${fmt(item.estimate)}</td>`;
-                        h += `<td style="text-align:right;white-space:nowrap;">${fmt(item.actual)}</td>`;
-                        h += `<td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${item.is_must !== false ? '#3b82f6' : '#a855f7'};color:#fff;">${item.is_must !== false ? 'マスト' : 'オプション'}</span></td>`;
-                        h += `<td style="font-size:11px;color:#a1a1aa;">${escapeHtml(item.note || '')}</td>`;
-                        h += '</tr>';
-                    });
-                    return h;
-                };
-                html += renderItems(mustItems, 'マスト施策');
-                html += renderItems(optItems, 'オプション施策');
-                html += '</tbody></table></div>';
-
-                // サマリー
-                if (data.summary) {
-                    const s = data.summary;
-                    html += '<div style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
-                    html += '<div style="font-weight:700;color:#e4e4e7;margin-bottom:8px;">予算サマリー</div>';
-                    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">';
-                    const items = [
-                        { label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
-                        { label: 'マスト費用', value: s.must_total, color: '#f97316' },
-                        { label: 'オプション費用', value: s.option_total, color: '#a855f7' },
-                        { label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
-                        { label: '残額', value: s.remaining, color: parseInt(String(s.remaining).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
-                    ];
-                    items.forEach(i => {
-                        html += `<div style="padding:8px;background:#27272a;border-radius:6px;">`;
-                        html += `<div style="font-size:10px;color:#a1a1aa;">${i.label}</div>`;
-                        html += `<div style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div>`;
-                        html += `</div>`;
-                    });
-                    html += '</div></div>';
+            try {
+                // データがstring（JSON文字列）の場合はパース
+                if (typeof data === 'string') {
+                    try { data = JSON.parse(data); } catch(e) {
+                        return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
+                    }
                 }
-                return html;
+                // 新フォーマット: { items: [...], summary: {...} } → テーブル形式に変換
+                if (data && Array.isArray(data.items)) {
+                    const fmt = (v) => {
+                        const n = parseInt(String(v).replace(/[,，円¥]/g, ''));
+                        return isNaN(n) ? (v || '') : n.toLocaleString();
+                    };
+                    const headers = ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'];
+                    const mustItems = data.items.filter(i => i.is_must !== false);
+                    const optItems = data.items.filter(i => i.is_must === false);
+                    const toRow = (item) => [
+                        item.category || '', item.billing_month || '', item.vendor || '',
+                        item.description || '', item.period || '', fmt(item.estimate),
+                        fmt(item.actual), item.is_must !== false ? 'マスト' : 'オプション', item.note || ''
+                    ];
+                    const sections = [];
+                    if (mustItems.length) sections.push({ title: 'マスト施策', rows: mustItems.map(toRow) });
+                    if (optItems.length) sections.push({ title: 'オプション施策', rows: optItems.map(toRow) });
+                    if (!sections.length && data.items.length) {
+                        sections.push({ title: '宣伝施策', rows: data.items.map(toRow) });
+                    }
+                    const tableData = { headers, sections, release_columns: [] };
+                    let html = renderTable(tableData, editable, projectId);
+
+                    // サマリー
+                    if (data.summary && (data.summary.total_budget || data.summary.must_total)) {
+                        const s = data.summary;
+                        html += '<div style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
+                        html += '<div style="font-weight:700;color:#e4e4e7;margin-bottom:8px;">予算サマリー</div>';
+                        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;">';
+                        [
+                            { label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
+                            { label: 'マスト費用', value: s.must_total, color: '#f97316' },
+                            { label: 'オプション費用', value: s.option_total, color: '#a855f7' },
+                            { label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
+                            { label: '残額', value: s.remaining, color: parseInt(String(s.remaining||0).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
+                        ].forEach(i => {
+                            html += `<div style="padding:8px;background:#27272a;border-radius:6px;">`;
+                            html += `<div style="font-size:10px;color:#a1a1aa;">${i.label}</div>`;
+                            html += `<div style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div>`;
+                            html += `</div>`;
+                        });
+                        html += '</div></div>';
+                    }
+                    return html;
+                }
+                // 旧フォーマット（headers/sections形式）
+                if (data && data.headers) return renderTable(data, editable, projectId);
+            } catch(err) {
+                console.error('renderBudgetTable error:', err);
             }
-            // フォールバック: 旧フォーマット（headers/sections形式）
-            return renderTable(data, editable, projectId);
+            // 最終フォールバック
+            return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
         }
 
         // テーブルデータ取得ヘルパー（pendingExtract or 保存済みプロジェクト両対応）
