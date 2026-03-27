@@ -958,11 +958,7 @@
             <button class="modal-close" onclick="closeShareModal()">&times;</button>
             <h2 id="share-modal-title">プロジェクトを共有</h2>
             <div class="share-form">
-                <input type="email" id="share-email" placeholder="メールアドレスを入力">
-                <select id="share-role">
-                    <option value="editor">編集者</option>
-                    <option value="viewer">閲覧者</option>
-                </select>
+                <input type="email" id="share-email" placeholder="メールアドレスを入力" style="flex:1;">
                 <button class="share-btn" onclick="sendShareInvite()">招待</button>
             </div>
             <div class="share-list">
@@ -4539,7 +4535,7 @@ ${fieldDefs}
 
         async function sendShareInvite() {
             const email = document.getElementById("share-email").value.trim().toLowerCase();
-            const role = document.getElementById("share-role").value;
+            const role = "editor";
             const projectId = _currentShareProjectId;
             if (!email || !projectId) { alert("メールアドレスを入力してください"); return; }
 
