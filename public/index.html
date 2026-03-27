@@ -746,7 +746,7 @@
             <!-- 2カラムレイアウト: 左=カレンダー / 右=編集 -->
             <div id="content-split-view" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
                 <!-- 左: 発信カレンダー -->
-                <div id="content-tweet-calendar" style="display:none;"></div>
+                <div id="content-tweet-calendar" style="display:none;min-width:0;overflow:hidden;"></div>
                 <div id="content-calendar-placeholder" class="input-section" style="text-align:center;padding:40px 20px;">
                     <span class="material-symbols-outlined" style="font-size:36px;color:#3f3f46;">calendar_month</span>
                     <p style="color:#52525b;font-size:13px;margin-top:8px;">プロジェクトを選択すると<br>発信カレンダーが表示されます</p>
@@ -3080,47 +3080,35 @@
                     const status = d ? (d.status || "draft") : "not_started";
                     const st = statusMap[status];
                     const body = d?.body || "";
-                    const charCount = body.length;
-                    const charColor = !hasDraft ? "#3f3f46" : charCount > 280 ? "#ef4444" : charCount > 250 ? "#f59e0b" : "#a1a1aa";
-                    const preview = body ? escapeHtml(body.replace(/\n/g, " ")).slice(0, 50) + (body.length > 50 ? "…" : "") : "";
-                    const images = (d?.images || []).length;
+                    const preview = body ? escapeHtml(body.replace(/\n/g, " ")).slice(0, 25) + (body.length > 25 ? "…" : "") : "";
                     const date = d?.postDate || task.date || "未定";
-                    const time = d?.postTime || "--:--";
-                    const catColor = catColors[task.category] || "#3f3f46";
                     const rowBg = !hasDraft ? "rgba(63,63,70,0.15)" : "";
                     return `<tr style="border-bottom:1px solid #27272a;cursor:pointer;background:${rowBg};" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
-                        <td style="padding:6px 8px;white-space:nowrap;font-size:12px;color:${hasDraft ? '#e4e4e7' : '#52525b'};">${escapeHtml(date)}</td>
-                        <td style="padding:6px 8px;white-space:nowrap;font-size:12px;color:${hasDraft ? '#a1a1aa' : '#52525b'};">${hasDraft ? escapeHtml(time) : '--:--'}</td>
-                        <td style="padding:6px 8px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(task.taskName)}</td>
-                        <td style="padding:6px 8px;font-size:12px;color:${hasDraft ? '#e4e4e7' : '#3f3f46'};max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
-                        <td style="padding:6px 8px;text-align:center;font-size:11px;color:${charColor};">${hasDraft ? charCount : '-'}</td>
-                        <td style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">${images > 0 ? '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">photo_camera</span>'+images : '-'}</td>
-                        <td style="padding:6px 8px;"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${st.bg};color:${st.color};">${st.label}</span></td>
+                        <td style="padding:5px 6px;white-space:nowrap;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#52525b'};">${escapeHtml(date)}</td>
+                        <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(task.taskName)}</td>
+                        <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#a1a1aa' : '#3f3f46'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
+                        <td style="padding:5px 6px;"><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:${st.bg};color:${st.color};">${st.label}</span></td>
                     </tr>`;
                 }).join("");
 
                 if (total === 0) return `<div style="color:#52525b;text-align:center;padding:20px;font-size:13px;">${label}の施策はありません</div>`;
 
-                return `<div style="margin-bottom:8px;">
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
-                        <span style="font-size:12px;color:#e4e4e7;font-weight:600;">${total}件</span>
+                return `<div style="margin-bottom:6px;">
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">
+                        <span style="font-size:11px;color:#e4e4e7;font-weight:600;">${total}件</span>
                         ${Object.entries(counts).filter(([k,v]) => v > 0).map(([k,v]) => { const s = statusMap[k]; return `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${s.bg};color:${s.color};">${s.label}:${v}</span>`; }).join("")}
                     </div>
-                    <div style="background:#27272a;border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px;">
+                    <div style="background:#27272a;border-radius:3px;height:3px;overflow:hidden;margin-bottom:6px;">
                         <div style="background:#6366f1;height:100%;width:${progress}%;"></div>
                     </div>
-                    <div style="font-size:10px;color:#52525b;margin-bottom:8px;">進捗: ${created}/${total} (${progress}%)</div>
                 </div>
                 <div style="overflow-x:auto;border:1px solid #27272a;border-radius:8px;">
                     <table style="width:100%;border-collapse:collapse;">
                         <thead><tr style="background:#1a1a2e;border-bottom:2px solid #6366f1;">
-                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">日付</th>
-                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">時間</th>
-                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">施策</th>
-                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">本文</th>
-                            <th style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">文字数</th>
-                            <th style="padding:6px 8px;text-align:center;font-size:11px;color:#a1a1aa;">画像</th>
-                            <th style="padding:6px 8px;text-align:left;font-size:11px;color:#a1a1aa;">状態</th>
+                            <th style="padding:5px 6px;text-align:left;font-size:10px;color:#a1a1aa;">日付</th>
+                            <th style="padding:5px 6px;text-align:left;font-size:10px;color:#a1a1aa;">施策</th>
+                            <th style="padding:5px 6px;text-align:left;font-size:10px;color:#a1a1aa;">内容</th>
+                            <th style="padding:5px 6px;text-align:left;font-size:10px;color:#a1a1aa;">状態</th>
                         </tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
@@ -3144,13 +3132,28 @@
             document.getElementById("cal-" + uid + "-pr").style.display = tab === "pr" ? "" : "none";
             btn.parentElement.querySelectorAll(".detail-tab-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
+            // エディタ側もリセット: ツイート/PR切替時にタスクセレクトを更新
+            const taskSelect = document.getElementById("task-select");
+            if (taskSelect) {
+                // タブに応じてフィルタ
+                window._currentCalTab = tab;
+                updateTaskSelect();
+                // エディタをプレースホルダーに戻す
+                const placeholder = document.getElementById("tweet-editor-placeholder");
+                const editor = document.getElementById("tweet-editor");
+                if (placeholder) placeholder.style.display = "";
+                if (editor) editor.style.display = "none";
+            }
         }
 
         function openTweetFromCalendar(projectId, taskRef) {
-            // コンテンツ生成タブに切り替えて該当施策を選択
-            switchTab('content');
-            document.getElementById("project-select").value = projectId;
-            applyProject();
+            // 既にコンテンツタブ内にいる場合はタブ切替不要
+            const currentTab = document.querySelector('.tab-btn.active')?.dataset?.tab;
+            if (currentTab !== 'content') {
+                switchTab('content');
+                document.getElementById("project-select").value = projectId;
+                applyProject();
+            }
             updateTaskSelect();
             setTimeout(() => {
                 const taskSelect = document.getElementById("task-select");
@@ -3161,12 +3164,14 @@
                         break;
                     }
                 }
-                // プレースホルダーを非表示に
+                // プレースホルダーを非表示、エディタを表示
                 const ph = document.getElementById("tweet-editor-placeholder");
+                const editor = document.getElementById("tweet-editor");
                 if (ph) ph.style.display = "none";
-                // エディタにスクロール
-                const editor = document.getElementById("tweet-editor-panel");
-                if (editor) editor.scrollIntoView({ behavior: "smooth", block: "start" });
+                if (editor) editor.style.display = "";
+                // エディタの先頭にスクロール（右パネル内）
+                const panel = document.getElementById("tweet-editor-panel");
+                if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
             }, 100);
         }
 
