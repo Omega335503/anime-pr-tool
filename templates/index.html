@@ -284,7 +284,7 @@
         .gantt-cat-プレスリリース { background: #3b1c1c !important; }
         .gantt-cat-WEB\/HP, [class*="gantt-cat-WEB"] { background: #1c2e1c !important; }
         .gantt-cat-イベント { background: #1c2635 !important; }
-        .gantt-cat-SNS更新 { background: #2e2618 !important; }
+        .gantt-cat-SNS { background: #2e2618 !important; }
         .gantt-cat-制作物 { background: #2a1c35 !important; }
         .gantt-cat-アニメ制作 { background: #1c2e2e !important; }
         .gantt-cat-MTG { background: #2e2e1c !important; }
@@ -1207,7 +1207,7 @@
 
         // ガントチャート用シートデータ生成
         function buildGanttSheetData(timeline, title) {
-            const categories = ['プレスリリース', 'X更新', 'SNS更新', '制作物', 'WEB/HP', 'イベント', 'アニメ制作', 'MTG', 'その他'];
+            const categories = ['プレスリリース', 'X更新', 'SNS', '制作物', 'WEB/HP', 'イベント', 'アニメ制作', 'MTG', 'その他'];
             const entries = timeline || [];
             // 月の範囲を特定
             const months = new Set();
@@ -2352,7 +2352,7 @@
             return '<div class="detail-no-data">未対応の形式です</div>';
         }
 
-        const TL_CATEGORIES = ["MTG","プレスリリース","SNS更新","制作物","WEB/HP","イベント","アニメ制作","メディア","コラボ/グッズ","その他"];
+        const TL_CATEGORIES = ["MTG","プレスリリース","SNS","制作物","WEB/HP","イベント","アニメ制作","メディア","コラボ/グッズ","その他"];
 
         function renderTimeline(entries, editable) {
             if (!Array.isArray(entries)) return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(entries, null, 2))}</div>`;
@@ -2635,7 +2635,7 @@
             return html;
         }
 
-        const BUDGET_CATEGORIES = ["MTG","プレスリリース","SNS更新","制作物","WEB/HP","イベント","アニメ制作","メディア","コラボ/グッズ","その他"];
+        const BUDGET_CATEGORIES = ["MTG","プレスリリース","SNS","制作物","WEB/HP","イベント","アニメ制作","メディア","コラボ/グッズ","その他"];
         const BUDGET_HEADERS = ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'];
 
         function convertBudgetToTable(data) {
@@ -3037,7 +3037,7 @@
             };
             const catColors = {}; // 統一色: #6366f1（紫）をデフォルトで使用
 
-            // 全施策を展開（X更新/SNS更新 → ツイート、プレスリリース → PR）
+            // 全施策を展開（X更新/SNS → ツイート、プレスリリース → PR）
             const TWEET_CATS = ["X更新"];
             const PR_CATS = ["プレスリリース"];
             const allTasks = [];
@@ -3176,12 +3176,12 @@
 
             const CAT_MAP = {
                 "プレスリリース": "プレスリリース", "アニメ制作": "アニメ制作", "MTG": "MTG",
-                "X更新": "X更新", "SNS更新": "SNS更新", "イベント": "イベント", "WEB/HP": "WEB/HP", "制作物": "制作物",
+                "X更新": "X更新", "SNS": "SNS", "イベント": "イベント", "WEB/HP": "WEB/HP", "制作物": "制作物",
                 "メディア": "メディア", "コラボ/グッズ": "コラボ/グッズ",
                 // 旧名からの互換
                 "制作進行": "アニメ制作", "Web/HP": "WEB/HP", "PV/映像": "制作物",
             };
-            const CATEGORIES = ["プレスリリース", "WEB/HP", "イベント", "X更新", "SNS更新", "制作物", "アニメ制作", "MTG", "その他"];
+            const CATEGORIES = ["プレスリリース", "WEB/HP", "イベント", "X更新", "SNS", "制作物", "アニメ制作", "MTG", "その他"];
 
             // 日付パース: "YYYY/MM/DD", "YYYY-MM-DD", "M/D" 全対応
             function parseGanttDate(dateStr) {
@@ -3438,7 +3438,7 @@
                 <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:24px;width:480px;max-width:90vw;">
                     <h3 style="color:#fff;font-size:16px;margin-bottom:12px;">再抽出 - ${escapeHtml(p.name)}</h3>
                     <p style="color:#a1a1aa;font-size:12px;margin-bottom:12px;">AIへの追加指示（任意）：日付の補正や分類の修正などを指定できます</p>
-                    <textarea id="reextract-instructions" placeholder="例: 日付は2025年11月からスタート。放送開始は2026年10月。&#10;例: YouTube更新はSNS更新に分類して" style="width:100%;height:80px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;padding:10px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+                    <textarea id="reextract-instructions" placeholder="例: 日付は2025年11月からスタート。放送開始は2026年10月。&#10;例: YouTube更新はSNSに分類して" style="width:100%;height:80px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;padding:10px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
                     <div style="display:flex;gap:8px;margin-top:16px;">
                         <button onclick="executeReExtract('${id}', this.closest('div').parentElement)" style="flex:1;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;">再抽出を実行</button>
                         <button onclick="this.closest('div').closest('div').closest('div').remove()" style="padding:10px 20px;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;border-radius:8px;cursor:pointer;">キャンセル</button>
@@ -3524,7 +3524,7 @@
         }
 
         // 中項目を展開すべきカテゴリ（中項目が個別の施策となるもの）
-        const EXPAND_CATEGORIES = ["X更新", "SNS更新", "プレスリリース", "制作物", "WEB/HP", "イベント"];
+        const EXPAND_CATEGORIES = ["X更新", "SNS", "プレスリリース", "制作物", "WEB/HP", "イベント"];
 
         function updateTaskSelect() {
             const projectId = document.getElementById("project-select").value;
@@ -3753,8 +3753,8 @@
 
             // カテゴリベースのフォールバック
             if (category === "プレスリリース" || category === "制作物") return "情報告知";
-            if (category === "SNS更新") {
-                // SNS更新のデフォルトは情報告知
+            if (category === "SNS") {
+                // SNSのデフォルトは情報告知
                 return "情報告知";
             }
 
