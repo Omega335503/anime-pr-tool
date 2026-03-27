@@ -763,7 +763,8 @@
 
                     <!-- ツイート編集パネル -->
                     <div id="tweet-editor-panel" style="display:none;">
-                        <div class="input-section" style="border-left:3px solid #6366f1;padding:14px;">
+                        <!-- 企画立案セクション -->
+                        <div class="input-section" style="border-left:3px solid #6366f1;padding:14px;margin-bottom:12px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                                 <h3 style="color:#e4e4e7;font-size:14px;margin:0;" id="tweet-editor-title">ツイート編集</h3>
                                 <span id="tweet-editor-status" style="padding:2px 8px;border-radius:10px;font-size:10px;background:#27272a;color:#a1a1aa;">下書き</span>
@@ -784,23 +785,8 @@
                                 <textarea id="tweet-memo" placeholder="補足事項" oninput="autoSaveTweet()" style="width:100%;height:32px;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;resize:vertical;"></textarea>
                             </div>
                             <div class="form-group" style="margin-bottom:6px;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;">
-                                    <label style="font-size:11px;">ツイート本文</label>
-                                    <span id="tweet-char-count" style="font-size:10px;color:#a1a1aa;">0 / 280</span>
-                                </div>
-                                <textarea id="tweet-body" placeholder="ツイート本文をここに入力 or AIで生成" style="width:100%;height:100px;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;line-height:1.5;resize:vertical;" oninput="updateTweetCharCount(); autoSaveTweet()"></textarea>
-                            </div>
-                            <div class="form-group" style="margin-bottom:6px;">
                                 <label style="font-size:11px;">ハッシュタグ</label>
                                 <input type="text" id="tweet-hashtags" placeholder="例: #作品名" oninput="autoSaveTweet()" style="width:100%;padding:6px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;">
-                            </div>
-                            <div class="form-group" style="margin-bottom:6px;">
-                                <label style="font-size:11px;">添付画像</label>
-                                <div id="tweet-images-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;"></div>
-                                <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#27272a;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#a1a1aa;font-size:11px;">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">photo_camera</span> 画像を追加
-                                    <input type="file" id="tweet-image-input" accept="image/*" multiple style="display:none;" onchange="handleTweetImages(this)">
-                                </label>
                             </div>
                             <div class="form-group" style="margin-bottom:6px;">
                                 <label style="font-size:11px;">URL</label>
@@ -815,9 +801,32 @@
                                     <option value="posted">投稿済み</option>
                                 </select>
                             </div>
-                            <div style="display:flex;gap:6px;margin-top:10px;">
-                                <button onclick="aiGenerateTweet()" style="flex:1;padding:8px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AI生成</button>
-                                <button onclick="saveTweetDraft(true)" style="padding:8px 16px;background:#22c55e;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
+                            <div style="margin-top:10px;">
+                                <button onclick="saveTweetDraft(true)" style="width:100%;padding:8px;background:#22c55e;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
+                            </div>
+                        </div>
+                        <!-- 本文生成セクション -->
+                        <div class="input-section" style="border-left:3px solid #a855f7;padding:14px;">
+                            <h4 style="color:#e4e4e7;font-size:13px;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#a855f7;">auto_awesome</span>本文生成
+                            </h4>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <label style="font-size:11px;">ツイート本文</label>
+                                    <span id="tweet-char-count" style="font-size:10px;color:#a1a1aa;">0 / 280</span>
+                                </div>
+                                <textarea id="tweet-body" placeholder="ツイート本文をここに入力 or AIで生成" style="width:100%;height:100px;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:13px;line-height:1.5;resize:vertical;" oninput="updateTweetCharCount(); autoSaveTweet()"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom:6px;">
+                                <label style="font-size:11px;">添付画像</label>
+                                <div id="tweet-images-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;"></div>
+                                <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#27272a;border:1px dashed #3f3f46;border-radius:6px;cursor:pointer;color:#a1a1aa;font-size:11px;">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">photo_camera</span> 画像を追加
+                                    <input type="file" id="tweet-image-input" accept="image/*" multiple style="display:none;" onchange="handleTweetImages(this)">
+                                </label>
+                            </div>
+                            <div style="margin-top:10px;">
+                                <button onclick="aiGenerateTweet()" style="width:100%;padding:8px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIで本文生成</button>
                             </div>
                             <div id="tweet-ai-loading" style="display:none;text-align:center;padding:8px;">
                                 <div class="spinner"></div>
@@ -834,7 +843,8 @@
 
                     <!-- 従来のフォーム（プレスリリース用） -->
                     <div id="legacy-content-form" style="display:none;">
-                        <div class="input-section" id="content-form-section" style="border-left:3px solid #22c55e;padding:14px;">
+                        <!-- 企画立案セクション -->
+                        <div class="input-section" id="content-form-section" style="border-left:3px solid #22c55e;padding:14px;margin-bottom:12px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                                 <h3 style="color:#e4e4e7;font-size:14px;margin:0;">プレスリリース編集</h3>
                                 <button onclick="aiAutoFillPR()" style="padding:5px 12px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:4px;">
@@ -846,9 +856,15 @@
                                 <p style="color:#a1a1aa;font-size:11px;margin-top:6px;">AI自動入力中...</p>
                             </div>
                             <div id="content-form"></div>
-                            <div style="display:flex;gap:6px;margin-top:10px;">
-                                <button class="btn-generate" id="btn-content-generate" onclick="generateContent()" style="flex:1;padding:8px;font-size:12px;">
-                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> プレスリリースを生成
+                        </div>
+                        <!-- 本文生成セクション -->
+                        <div class="input-section" style="border-left:3px solid #a855f7;padding:14px;">
+                            <h4 style="color:#e4e4e7;font-size:13px;margin:0 0 10px 0;display:flex;align-items:center;gap:6px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;color:#a855f7;">auto_awesome</span>本文生成
+                            </h4>
+                            <div style="margin-top:10px;">
+                                <button class="btn-generate" id="btn-content-generate" onclick="generateContent()" style="width:100%;padding:8px;font-size:12px;">
+                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIでプレスリリースを生成
                                 </button>
                             </div>
                         </div>
