@@ -2904,9 +2904,16 @@
         }
 
         function onTableEdit(el) {
-            const tabContent = el.closest('[data-project-id]');
+            // プロジェクト詳細 or プレビュー両方のタブを検索
+            const tabContent = el.closest('[data-project-id]') || el.closest('.detail-tab-content');
             const pid = tabContent?.dataset?.projectId;
-            const docType = tabContent?.dataset?.docType || (tabContent?.id?.includes('text_master') ? 'text_master' : 'budget');
+            // docType判定
+            let docType = 'budget';
+            const tabId = tabContent?.id || '';
+            if (tabId.includes('text_master')) docType = 'text_master';
+            else if (tabId.includes('timeline')) docType = 'timeline';
+            else if (tabContent?.dataset?.docType) docType = tabContent.dataset.docType;
+
             let data;
             if (pid) {
                 _editingProjectId = pid;
@@ -2917,7 +2924,7 @@
             }
             if (!data) return;
             const si = parseInt(el.dataset.si), ri = parseInt(el.dataset.ri), ci = parseInt(el.dataset.ci);
-            if (data.sections[si] && data.sections[si].rows[ri]) {
+            if (data.sections?.[si]?.rows?.[ri]) {
                 data.sections[si].rows[ri][ci] = el.value;
             }
             // 予算表の場合: サマリーをリアルタイム再計算
@@ -2947,10 +2954,13 @@
             const remaining = totalBudget - combined;
             if (!data._budget_summary) data._budget_summary = {};
             Object.assign(data._budget_summary, { must_total: mustTotal, option_total: optTotal, must_option_total: combined, remaining, by_category: catTotals });
-            // DOM上のサマリーを更新
-            const wrap = contextEl?.closest('.detail-tab-content') || contextEl?.closest('.editable-table-wrap')?.parentElement;
-            if (!wrap) return;
-            const summaryEl = wrap.querySelector('[data-budget-summary]');
+            // DOM上のサマリーを更新 - 複数の探索パスで確実に見つける
+            let wrap = contextEl?.closest('.detail-tab-content');
+            if (!wrap) wrap = contextEl?.closest('.editable-table-wrap')?.parentElement;
+            if (!wrap) wrap = contextEl?.closest('div');
+            // それでもサマリーが見つからない場合、ページ全体から探す
+            let summaryEl = wrap?.querySelector('[data-budget-summary]');
+            if (!summaryEl) summaryEl = document.querySelector('[data-budget-summary]');
             if (summaryEl) {
                 const fmt = (v) => (v||0).toLocaleString() + '円';
                 summaryEl.querySelectorAll('[data-summary-key]').forEach(item => {
