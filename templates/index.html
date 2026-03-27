@@ -736,10 +736,6 @@
                     <select id="project-select" onchange="applyProject(); updateTaskSelect();" style="flex:1;min-width:200px;padding:8px 12px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;font-size:13px;">
                         <option value="">-- プロジェクトを選択 --</option>
                     </select>
-                    <div class="content-type-selector" style="margin:0;">
-                        <button class="type-btn active" data-type="tweet" onclick="switchContentType('tweet')">ツイート</button>
-                        <button class="type-btn" data-type="press_release" onclick="switchContentType('press_release')">プレスリリース</button>
-                    </div>
                 </div>
             </div>
 
@@ -3154,6 +3150,10 @@
                 document.getElementById("project-select").value = projectId;
                 applyProject();
             }
+            // カレンダータブに応じてツイート/PR切替
+            const calTab = window._currentCalTab || 'tweet';
+            const contentType = calTab === 'pr' ? 'press_release' : 'tweet';
+            switchContentType(contentType);
             updateTaskSelect();
             setTimeout(() => {
                 const taskSelect = document.getElementById("task-select");
@@ -3166,12 +3166,14 @@
                 }
                 // プレースホルダーを非表示、エディタを表示
                 const ph = document.getElementById("tweet-editor-placeholder");
-                const editor = document.getElementById("tweet-editor");
                 if (ph) ph.style.display = "none";
-                if (editor) editor.style.display = "";
-                // エディタの先頭にスクロール（右パネル内）
-                const panel = document.getElementById("tweet-editor-panel");
-                if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+                if (contentType === 'tweet') {
+                    const panel = document.getElementById("tweet-editor-panel");
+                    if (panel) { panel.style.display = ""; panel.scrollIntoView({ behavior: "smooth", block: "start" }); }
+                } else {
+                    const form = document.getElementById("legacy-content-form");
+                    if (form) { form.style.display = ""; form.scrollIntoView({ behavior: "smooth", block: "start" }); }
+                }
             }, 100);
         }
 
