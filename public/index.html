@@ -870,7 +870,11 @@
         </div>
         <!-- タブ3: プロジェクト管理 -->
         <div id="tab-projects" class="tab-panel">
-            <div class="input-section">
+            <!-- 登録済みプロジェクト一覧（上） -->
+            <div id="project-list"></div>
+
+            <!-- 新規プロジェクト登録（下） -->
+            <div class="input-section" style="margin-top:16px;">
                 <h2 style="font-size:16px;color:#fff;margin-bottom:4px;">新規プロジェクト登録</h2>
                 <p style="font-size:12px;color:#52525b;margin-bottom:16px;">Google Docs/SheetsのURLを入力して作品情報を自動抽出します。<br>※「リンクを知っている全員が閲覧可」に設定してください。</p>
                 <div class="form-group">
@@ -925,11 +929,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 登録済みプロジェクト一覧 -->
-            <div id="project-list"></div>
-
-            <!-- 共有プロジェクトはproject-list内に統合表示 -->
         </div>
     </div>
 
