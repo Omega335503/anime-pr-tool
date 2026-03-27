@@ -69,7 +69,7 @@ def structure_budget(content, get_client_fn, extract_json_fn):
 {{
   "items": [
     {{
-      "category": "科目（稼働費/制作費/版権費/デザイン費/販促費/イベント費/特殊販促/その他）",
+      "category": "科目（MTG/プレスリリース/SNS更新/制作物/WEB/HP/イベント/アニメ制作/メディア/コラボ/グッズ/その他）",
       "billing_month": "請求月（例: 2026/04）",
       "vendor": "発注先",
       "description": "宣伝内容",

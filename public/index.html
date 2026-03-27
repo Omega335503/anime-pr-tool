@@ -2258,7 +2258,11 @@
                 const structured = {};
                 for (const result of structureResults) {
                     if (result.ok) {
-                        structured[result.key] = result.data.structured;
+                        if (result.key === 'budget') {
+                            structured[result.key] = convertBudgetToTable(result.data.structured);
+                        } else {
+                            structured[result.key] = result.data.structured;
+                        }
                     }
                 }
 
@@ -2615,65 +2619,107 @@
             return html;
         }
 
+        const BUDGET_CATEGORIES = ["MTG","プレスリリース","SNS更新","制作物","WEB/HP","イベント","アニメ制作","メディア","コラボ/グッズ","その他"];
+        const BUDGET_HEADERS = ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'];
+
+        function convertBudgetToTable(data) {
+            if (!data) return data;
+            if (typeof data === 'string') { try { data = JSON.parse(data); } catch(e) { return data; } }
+            if (data.headers) return data; // 既にテーブル形式
+            if (!Array.isArray(data.items)) return data;
+            const fmt = (v) => { const n = parseInt(String(v).replace(/[,，円¥]/g, '')); return isNaN(n) ? (v || '') : n.toLocaleString(); };
+            const toRow = (item) => [
+                item.category || '', item.billing_month || '', item.vendor || '',
+                item.description || '', item.period || '', fmt(item.estimate),
+                fmt(item.actual), item.is_must !== false ? 'マスト' : 'オプション', item.note || ''
+            ];
+            const mustItems = data.items.filter(i => i.is_must !== false);
+            const optItems = data.items.filter(i => i.is_must === false);
+            const sections = [];
+            if (mustItems.length) sections.push({ title: 'マスト施策', rows: mustItems.map(toRow) });
+            if (optItems.length) sections.push({ title: 'オプション施策', rows: optItems.map(toRow) });
+            if (!sections.length && data.items.length) sections.push({ title: '宣伝施策', rows: data.items.map(toRow) });
+            const result = { headers: BUDGET_HEADERS, sections, release_columns: [] };
+            if (data.summary) result._budget_summary = data.summary;
+            return result;
+        }
+
         function renderBudgetTable(data, editable, projectId) {
             try {
-                // データがstring（JSON文字列）の場合はパース
-                if (typeof data === 'string') {
-                    try { data = JSON.parse(data); } catch(e) {
-                        return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
-                    }
-                }
-                // 新フォーマット: { items: [...], summary: {...} } → テーブル形式に変換
-                if (data && Array.isArray(data.items)) {
-                    const fmt = (v) => {
-                        const n = parseInt(String(v).replace(/[,，円¥]/g, ''));
-                        return isNaN(n) ? (v || '') : n.toLocaleString();
-                    };
-                    const headers = ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'];
-                    const mustItems = data.items.filter(i => i.is_must !== false);
-                    const optItems = data.items.filter(i => i.is_must === false);
-                    const toRow = (item) => [
-                        item.category || '', item.billing_month || '', item.vendor || '',
-                        item.description || '', item.period || '', fmt(item.estimate),
-                        fmt(item.actual), item.is_must !== false ? 'マスト' : 'オプション', item.note || ''
-                    ];
-                    const sections = [];
-                    if (mustItems.length) sections.push({ title: 'マスト施策', rows: mustItems.map(toRow) });
-                    if (optItems.length) sections.push({ title: 'オプション施策', rows: optItems.map(toRow) });
-                    if (!sections.length && data.items.length) {
-                        sections.push({ title: '宣伝施策', rows: data.items.map(toRow) });
-                    }
-                    const tableData = { headers, sections, release_columns: [] };
-                    let html = renderTable(tableData, editable, projectId);
+                if (typeof data === 'string') { try { data = JSON.parse(data); } catch(e) { return `<div class="detail-raw-content">${escapeHtml(data)}</div>`; } }
+                if (data && Array.isArray(data.items)) data = convertBudgetToTable(data);
+                if (!data || !data.headers) return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
 
-                    // サマリー
-                    if (data.summary && (data.summary.total_budget || data.summary.must_total)) {
-                        const s = data.summary;
-                        html += '<div style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
-                        html += '<div style="font-weight:700;color:#e4e4e7;margin-bottom:8px;">予算サマリー</div>';
-                        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;">';
-                        [
-                            { label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
-                            { label: 'マスト費用', value: s.must_total, color: '#f97316' },
-                            { label: 'オプション費用', value: s.option_total, color: '#a855f7' },
-                            { label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
-                            { label: '残額', value: s.remaining, color: parseInt(String(s.remaining||0).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
-                        ].forEach(i => {
-                            html += `<div style="padding:8px;background:#27272a;border-radius:6px;">`;
-                            html += `<div style="font-size:10px;color:#a1a1aa;">${i.label}</div>`;
-                            html += `<div style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div>`;
-                            html += `</div>`;
-                        });
-                        html += '</div></div>';
+                let html = '<div class="editable-table-wrap"><table class="editable-table"><thead><tr>';
+                data.headers.forEach(h => { html += `<th style="white-space:nowrap;font-size:11px;">${escapeHtml(h)}</th>`; });
+                if (editable) html += '<th style="width:40px;"></th>';
+                html += '</tr></thead><tbody>';
+
+                (data.sections || []).forEach((section, si) => {
+                    if (section.title) {
+                        const cs = data.headers.length + (editable ? 1 : 0);
+                        html += `<tr class="section-header"><td colspan="${cs}">【${escapeHtml(section.title)}】</td></tr>`;
                     }
-                    return html;
+                    (section.rows || []).forEach((row, ri) => {
+                        html += '<tr>';
+                        data.headers.forEach((hdr, ci) => {
+                            const val = (row[ci] != null) ? String(row[ci]) : '';
+                            if (editable && ci === 0) {
+                                // 科目列: ドロップダウン（タイムラインカテゴリと一致）
+                                html += '<td><select data-si="' + si + '" data-ri="' + ri + '" data-ci="' + ci + '" onchange="onTableEdit(this)" style="background:#18181b;border:1px solid #3f3f46;color:#e4e4e7;padding:4px;border-radius:4px;font-size:12px;width:100%;">';
+                                BUDGET_CATEGORIES.forEach(c => {
+                                    html += `<option value="${c}"${c === val ? ' selected' : ''}>${c}</option>`;
+                                });
+                                if (val && !BUDGET_CATEGORIES.includes(val)) html += `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`;
+                                html += '</select></td>';
+                            } else if (editable && ci === 7) {
+                                // 種別列: マスト/オプション選択
+                                html += '<td><select data-si="' + si + '" data-ri="' + ri + '" data-ci="' + ci + '" onchange="onTableEdit(this)" style="background:#18181b;border:1px solid #3f3f46;color:#e4e4e7;padding:4px;border-radius:4px;font-size:12px;">';
+                                html += `<option value="マスト"${val === 'マスト' ? ' selected' : ''}>マスト</option>`;
+                                html += `<option value="オプション"${val === 'オプション' ? ' selected' : ''}>オプション</option>`;
+                                html += '</select></td>';
+                            } else if (editable) {
+                                html += `<td><input value="${escapeHtml(val)}" data-si="${si}" data-ri="${ri}" data-ci="${ci}" onchange="onTableEdit(this)"></td>`;
+                            } else {
+                                html += `<td style="padding:6px 10px;">${escapeHtml(val)}</td>`;
+                            }
+                        });
+                        if (editable) {
+                            html += `<td style="white-space:nowrap;">`;
+                            html += `<button onclick="moveTableRow(${si},${ri},-1)" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:11px;padding:0 2px;" title="上へ">▲</button>`;
+                            html += `<button onclick="moveTableRow(${si},${ri},1)" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:11px;padding:0 2px;" title="下へ">▼</button>`;
+                            html += `<button onclick="removeTableRow(${si},${ri})" style="background:none;border:none;color:#52525b;cursor:pointer;font-size:14px;padding:0 2px;" title="行を削除">✕</button>`;
+                            html += `</td>`;
+                        }
+                        html += '</tr>';
+                    });
+                    if (editable) {
+                        const cs = data.headers.length + 1;
+                        html += `<tr><td colspan="${cs}"><button onclick="addTableRow(${si})" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:11px;padding:4px 8px;">＋ 行を追加</button></td></tr>`;
+                    }
+                });
+                html += '</tbody></table></div>';
+
+                // サマリー表示
+                const s = data._budget_summary;
+                if (s && (s.total_budget || s.must_total)) {
+                    const fmt = (v) => { const n = parseInt(String(v||0).replace(/[,，円¥]/g, '')); return isNaN(n) ? '-' : n.toLocaleString() + '円'; };
+                    html += '<div style="margin-top:16px;padding:12px 16px;background:#1a1a2e;border:1px solid #3f3f46;border-radius:8px;">';
+                    html += '<div style="font-weight:700;color:#e4e4e7;margin-bottom:8px;">予算サマリー</div>';
+                    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;">';
+                    [
+                        { label: '宣伝予算', value: s.total_budget, color: '#60a5fa' },
+                        { label: 'マスト費用', value: s.must_total, color: '#f97316' },
+                        { label: 'オプション費用', value: s.option_total, color: '#a855f7' },
+                        { label: 'マスト+オプション', value: s.must_option_total, color: '#fbbf24' },
+                        { label: '残額', value: s.remaining, color: parseInt(String(s.remaining||0).replace(/[,]/g,'')) >= 0 ? '#34d399' : '#ef4444' }
+                    ].forEach(i => {
+                        html += `<div style="padding:8px;background:#27272a;border-radius:6px;"><div style="font-size:10px;color:#a1a1aa;">${i.label}</div><div style="font-size:16px;font-weight:700;color:${i.color};">${fmt(i.value)}</div></div>`;
+                    });
+                    html += '</div></div>';
                 }
-                // 旧フォーマット（headers/sections形式）
-                if (data && data.headers) return renderTable(data, editable, projectId);
-            } catch(err) {
-                console.error('renderBudgetTable error:', err);
-            }
-            // 最終フォールバック
+                return html;
+            } catch(err) { console.error('renderBudgetTable error:', err); }
             return `<div class="detail-raw-content">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
         }
 
