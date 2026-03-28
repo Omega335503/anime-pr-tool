@@ -931,7 +931,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <button class="btn-generate" id="btn-register-project" onclick="registerProject()">資料を取得して登録</button>
+                    <button class="btn-generate" id="btn-register-project" onclick="registerProject()">登録</button>
                 </div>
             </div>
 
@@ -2460,7 +2460,25 @@
                 if (v) urls[key] = v;
             }
             if (Object.keys(urls).length === 0) {
-                alert("少なくとも1つのURLを入力してください");
+                // URLなしでも空テンプレートで登録可能
+                const projectId = "pj_" + Date.now();
+                const project = {
+                    name: name,
+                    created_at: new Date().toISOString(),
+                    structured: {
+                        timeline: _emptyTemplate('timeline'),
+                        text_master: _emptyTemplate('text_master'),
+                        budget: _emptyTemplate('budget'),
+                    },
+                    extracted: { title: name, hashtags: "", official_url: "", official_x: "" },
+                    documents: {},
+                };
+                saveProject(projectId, project);
+                renderProjectList();
+                updateProjectSelect();
+                _tabInitialized.dashboard = false;
+                alert(`「${name}」を登録しました。プロジェクト管理タブで編集できます。`);
+                document.getElementById("pj-name").value = "";
                 return;
             }
 
