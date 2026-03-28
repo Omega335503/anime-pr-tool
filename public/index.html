@@ -1656,7 +1656,11 @@
             arrow.style.transform = open ? '' : 'rotate(90deg)';
             // 開いた時にガントチャートを今週にスクロール
             if (!open) {
-                setTimeout(() => scrollGanttToToday(body), 50);
+                setTimeout(() => {
+                    scrollGanttToToday(body);
+                    const w = body.querySelector('.gantt-wrapper');
+                    if (w) initGanttScroll(w);
+                }, 50);
             }
         }
 
@@ -3249,6 +3253,27 @@
             const colLeft = todayTh.offsetLeft;
             const colW = todayTh.offsetWidth;
             wrapper.scrollLeft = Math.max(0, colLeft - wrapper.offsetWidth / 2 + colW / 2);
+            updateGanttYear(wrapper);
+        }
+
+        function updateGanttYear(wrapper) {
+            const yearLabel = wrapper.querySelector('.gantt-year-label');
+            if (!yearLabel) return;
+            const monthHeaders = wrapper.querySelectorAll('th.gantt-month[data-year]');
+            const scrollLeft = wrapper.scrollLeft;
+            const catWidth = wrapper.querySelector('.gantt-cat')?.offsetWidth || 100;
+            let currentYear = null;
+            monthHeaders.forEach(th => {
+                if (th.offsetLeft <= scrollLeft + catWidth + 20) {
+                    currentYear = th.dataset.year;
+                }
+            });
+            if (currentYear) yearLabel.textContent = currentYear + '年';
+        }
+
+        function initGanttScroll(wrapper) {
+            wrapper.addEventListener('scroll', () => updateGanttYear(wrapper));
+            updateGanttYear(wrapper);
         }
 
         function renderGanttChart(timeline, projectName) {
@@ -3314,20 +3339,9 @@
             let html = '<div class="gantt-layout">';
             html += `<div class="gantt-main"><div class="gantt-wrapper" id="${ganttUid}"><table class="gantt-table">`;
 
-            // 年ヘッダー
-            html += '<tr><th class="gantt-cat"></th>';
-            let prevYear = null;
-            months.forEach(m => { if (m.year !== prevYear) { html += `<th colspan="${months.filter(x => x.year === m.year).length * 4}" class="gantt-year">${m.year}年</th>`; prevYear = m.year; } });
-            html += '</tr>';
-
-            html += '<tr><th class="gantt-cat">実施項目</th>';
-            let prevMY = null;
-            months.forEach(m => {
-                const showYear = (prevMY === null || m.year !== prevMY);
-                const label = showYear ? `${m.year}/${m.month}月` : `${m.month}月`;
-                prevMY = m.year;
-                html += `<th colspan="4" class="gantt-month">${label}</th>`;
-            });
+            // 月ヘッダー（年は左固定列に動的表示）
+            html += '<tr><th class="gantt-cat" style="position:relative;"><span class="gantt-year-label" id="gantt-year-' + ganttUid + '" style="font-size:11px;color:#a1a1aa;font-weight:600;">' + months[0].year + '年</span></th>';
+            months.forEach(m => { html += `<th colspan="4" class="gantt-month" data-year="${m.year}">${m.month}月</th>`; });
             html += '</tr>';
 
             html += '<tr><th class="gantt-cat"></th>';
@@ -3384,7 +3398,10 @@
             // 自動スクロールは scrollGanttToToday で行う
             setTimeout(() => {
                 const wrapper = document.getElementById(ganttUid);
-                if (wrapper) scrollGanttToToday(wrapper.closest('.input-section') || wrapper.parentElement);
+                if (wrapper) {
+                    scrollGanttToToday(wrapper.closest('.input-section') || wrapper.parentElement);
+                    initGanttScroll(wrapper);
+                }
             }, 100);
 
             return html;
