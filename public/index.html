@@ -2800,7 +2800,7 @@
             data.headers.forEach((h, ci) => {
                 const isRel = relCols.has(ci);
                 if (editable && isRel) {
-                    html += `<th class="release-col"><input value="${escapeHtml(h)}" style="background:transparent;border:none;color:#818cf8;font-size:11px;font-weight:700;text-align:center;width:80px;outline:none;" data-ci="${ci}" onchange="onHeaderEdit(this)"></th>`;
+                    html += `<th class="release-col" style="position:relative;"><input value="${escapeHtml(h)}" style="background:transparent;border:none;color:#818cf8;font-size:11px;font-weight:700;text-align:center;width:70px;outline:none;" data-ci="${ci}" onchange="onHeaderEdit(this)"><button onclick="removeReleaseColumn(${ci})" style="position:absolute;top:2px;right:2px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;padding:0;line-height:1;" title="列を削除">×</button></th>`;
                 } else {
                     html += `<th${isRel ? ' class="release-col"' : ''}>${escapeHtml(h)}</th>`;
                 }
@@ -3060,6 +3060,21 @@
             info.data.release_columns.push(newIdx);
             for (const section of info.data.sections) {
                 for (const row of section.rows) { row.push(""); }
+            }
+            _saveTableData(info);
+        }
+
+        function removeReleaseColumn(colIdx) {
+            const info = _getTableData(event.target);
+            if (!info.data) return;
+            if (!confirm(`「${info.data.headers[colIdx]}」列を削除しますか？`)) return;
+            // ヘッダーから削除
+            info.data.headers.splice(colIdx, 1);
+            // release_columnsを更新
+            info.data.release_columns = (info.data.release_columns || []).filter(i => i !== colIdx).map(i => i > colIdx ? i - 1 : i);
+            // 各行からその列を削除
+            for (const section of info.data.sections) {
+                for (const row of section.rows) { row.splice(colIdx, 1); }
             }
             _saveTableData(info);
         }
