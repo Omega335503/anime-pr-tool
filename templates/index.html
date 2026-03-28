@@ -1932,7 +1932,9 @@
         // Firestoreはネスト配列を許可しないので、structuredをJSON文字列化して保存
         function prepareForFirestore(obj) {
             if (!obj) return obj;
-            const clone = {...obj};
+            // まずundefinedを再帰的に除去
+            const clean = JSON.parse(JSON.stringify(obj));
+            const clone = {...clean};
             // structured内のtimelineはネスト配列を含むのでJSON文字列化
             if (clone.structured) {
                 clone._structured_json = JSON.stringify(clone.structured);
@@ -1947,6 +1949,11 @@
             if (clone.tweetDrafts) {
                 clone._tweetDrafts_json = JSON.stringify(clone.tweetDrafts);
                 delete clone.tweetDrafts;
+            }
+            // prDraftsも
+            if (clone.prDrafts) {
+                clone._prDrafts_json = JSON.stringify(clone.prDrafts);
+                delete clone.prDrafts;
             }
             return clone;
         }
@@ -1965,6 +1972,10 @@
             if (clone._tweetDrafts_json) {
                 try { clone.tweetDrafts = JSON.parse(clone._tweetDrafts_json); } catch(e) {}
                 delete clone._tweetDrafts_json;
+            }
+            if (clone._prDrafts_json) {
+                try { clone.prDrafts = JSON.parse(clone._prDrafts_json); } catch(e) {}
+                delete clone._prDrafts_json;
             }
             return clone;
         }
