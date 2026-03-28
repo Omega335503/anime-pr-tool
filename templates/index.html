@@ -829,7 +829,10 @@
                                 </label>
                             </div>
                             <div style="margin-top:10px;">
-                                <button onclick="aiGenerateTweet()" style="width:100%;padding:8px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIで本文生成</button>
+                                <div style="display:flex;gap:8px;">
+                                    <button onclick="aiGenerateTweet()" style="flex:1;padding:8px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIで本文生成</button>
+                                    <button onclick="saveTweetDraft(true)" style="padding:8px 20px;background:#22c55e;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
+                                </div>
                             </div>
                             <div id="tweet-ai-loading" style="display:none;text-align:center;padding:8px;">
                                 <div class="spinner"></div>
