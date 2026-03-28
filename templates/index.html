@@ -5028,7 +5028,8 @@ ${fieldDefs}
             const p = projects[projectId];
             document.getElementById("share-modal-title").textContent = `「${p?.name || projectId}」を共有`;
             document.getElementById("share-email").value = "";
-            document.getElementById("share-role").value = "editor";
+            const roleEl = document.getElementById("share-role");
+            if (roleEl) roleEl.value = "editor";
             document.getElementById("share-modal").classList.remove("hidden");
             loadShareMembers(projectId);
         }

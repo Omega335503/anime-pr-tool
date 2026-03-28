@@ -5028,7 +5028,8 @@ ${fieldDefs}
             const p = projects[projectId];
             document.getElementById("share-modal-title").textContent = `「${p?.name || projectId}」を共有`;
             document.getElementById("share-email").value = "";
-            document.getElementById("share-role").value = "editor";
+            const roleEl = document.getElementById("share-role");
+            if (roleEl) roleEl.value = "editor";
             document.getElementById("share-modal").classList.remove("hidden");
             loadShareMembers(projectId);
         }
@@ -5470,7 +5471,7 @@ ${fieldDefs}
     <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Corp.</div>
-            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/28 18:55</div>
+            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/28 19:02</div>
         </div>
     </footer>
 </body>
