@@ -1095,34 +1095,52 @@
             });
         }
 
-        // Google Sheets新規作成
-        async function createGoogleSheet(title, sheetData) {
+        // Google Sheets作成 or 上書き
+        async function createGoogleSheet(title, sheetData, existingId) {
             const token = await ensureAccessToken();
-            console.log('[Export] Creating sheet:', title, 'token:', token ? token.substring(0,10) + '...' : 'NONE');
-            const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ properties: { title } })
-            });
-            const sheetText = await createRes.text();
-            console.log('[Export] Sheet API response:', createRes.status, sheetText.substring(0, 500));
-            if (!createRes.ok) {
-                throw new Error(`Sheet作成失敗 (${createRes.status}): ${sheetText}`);
+            let spreadsheetId = existingId;
+            let spreadsheetUrl;
+
+            if (existingId) {
+                // 既存シートのデータをクリアして上書き
+                console.log('[Export] Updating existing sheet:', existingId);
+                // まず全データクリア
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existingId}/values/A:ZZ?`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).catch(() => {});
+                // クリア（DELETE非対応の場合のフォールバック）
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${existingId}/values/A1:ZZ9999:clear`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: '{}'
+                });
+                spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${existingId}/edit`;
+            } else {
+                // 新規作成
+                console.log('[Export] Creating new sheet:', title);
+                const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ properties: { title } })
+                });
+                const sheetText = await createRes.text();
+                if (!createRes.ok) throw new Error(`Sheet作成失敗 (${createRes.status}): ${sheetText}`);
+                const sheet = JSON.parse(sheetText);
+                if (!sheet.spreadsheetId) throw new Error('Sheet作成: spreadsheetIdが取得できません');
+                spreadsheetId = sheet.spreadsheetId;
+                spreadsheetUrl = sheet.spreadsheetUrl;
             }
-            const sheet = JSON.parse(sheetText);
-            if (!sheet.spreadsheetId) {
-                throw new Error('Sheet作成: spreadsheetIdが取得できません');
-            }
-            console.log('[Export] Sheet created:', sheet.spreadsheetId, sheet.spreadsheetUrl);
+
+            // データ書き込み
             if (sheetData && sheetData.length > 0) {
-                const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/A1?valueInputOption=RAW`, {
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1?valueInputOption=RAW`, {
                     method: 'PUT',
                     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ range: 'A1', majorDimension: 'ROWS', values: sheetData })
                 });
-                if (!writeRes.ok) console.warn('[Export] Sheet write failed:', await writeRes.text());
             }
-            return sheet.spreadsheetUrl;
+            return { url: spreadsheetUrl, id: spreadsheetId };
         }
 
         async function createGoogleDoc(title, bodyText) {
@@ -1154,22 +1172,49 @@
                 });
                 if (!updateRes.ok) console.warn('[Export] Doc write failed:', await updateRes.text());
             }
-            return `https://docs.google.com/document/d/${doc.documentId}/edit`;
+            return { url: `https://docs.google.com/document/d/${doc.documentId}/edit`, id: doc.documentId };
         }
 
-        async function createStyledTimelineDoc(title, projectName, timeline) {
+        async function createStyledTimelineDoc(title, projectName, timeline, existingId) {
             const token = await ensureAccessToken();
-            console.log('[Export] Creating styled doc:', title);
-            // 1. ドキュメント作成
-            const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title })
-            });
-            const docText = await createRes.text();
-            if (!createRes.ok) throw new Error(`Doc作成失敗 (${createRes.status}): ${docText}`);
-            const doc = JSON.parse(docText);
-            if (!doc.documentId) throw new Error('Doc作成: documentIdが取得できません');
+            let documentId = existingId;
+
+            if (existingId) {
+                console.log('[Export] Updating existing doc:', existingId);
+                // 既存ドキュメントの全内容を取得して削除
+                const getRes = await fetch(`https://docs.googleapis.com/v1/documents/${existingId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (getRes.ok) {
+                    const existingDoc = await getRes.json();
+                    const endIdx = existingDoc.body?.content?.slice(-1)?.[0]?.endIndex || 1;
+                    if (endIdx > 2) {
+                        await fetch(`https://docs.googleapis.com/v1/documents/${existingId}:batchUpdate`, {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ requests: [{ deleteContentRange: { range: { startIndex: 1, endIndex: endIdx - 1 } } }] })
+                        });
+                    }
+                } else {
+                    console.warn('[Export] Cannot access existing doc, creating new');
+                    existingId = null;
+                    documentId = null;
+                }
+            }
+
+            if (!documentId) {
+                console.log('[Export] Creating new doc:', title);
+                const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+                const docText = await createRes.text();
+                if (!createRes.ok) throw new Error(`Doc作成失敗 (${createRes.status}): ${docText}`);
+                const doc = JSON.parse(docText);
+                if (!doc.documentId) throw new Error('Doc作成: documentIdが取得できません');
+                documentId = doc.documentId;
+            }
 
             // 2. 時系列順でテキストブロックを構築
             const blocks = [];
@@ -1233,7 +1278,7 @@
             });
 
             // 4. batchUpdate実行
-            const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+            const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ requests })
@@ -1243,7 +1288,7 @@
                 console.warn('[Export] Doc style update failed:', errText);
             }
 
-            return `https://docs.google.com/document/d/${doc.documentId}/edit`;
+            return { url: `https://docs.google.com/document/d/${documentId}/edit`, id: documentId };
         }
 
         // プロジェクトデータから整形済みGoogle Docs/Sheetsを作成
@@ -1252,7 +1297,8 @@
             if (!p) return;
             const strc = p.structured || {};
             const name = p.name || 'アニメプロジェクト';
-            const urls = {};
+            const existing = p.exported_ids || {};
+            const result = {};
 
             try {
                 // トークン取得（初回のみOAuth同意画面）
@@ -1262,13 +1308,13 @@
 
                 // 1. 宣伝タイムライン → Google Docs（見出しスタイル付き）
                 if (strc.timeline && strc.timeline.length > 0) {
-                    updateProgress('タイムライン作成中...');
-                    urls.timeline = await createStyledTimelineDoc(`${name}_宣伝タイムライン`, name, strc.timeline);
+                    updateProgress('タイムライン書き出し中...');
+                    result.timeline = await createStyledTimelineDoc(`${name}_宣伝タイムライン`, name, strc.timeline, existing.timeline);
                 }
 
                 // 2. テキストマスター → Google Sheets
                 if (strc.text_master) {
-                    updateProgress('テキストマスター作成中...');
+                    updateProgress('テキストマスター書き出し中...');
                     const tm = strc.text_master;
                     const rows = [];
                     if (tm.headers) rows.push(tm.headers);
@@ -1277,12 +1323,12 @@
                         (sec.rows || []).forEach(row => rows.push(row));
                         rows.push([]);
                     });
-                    urls.text_master = await createGoogleSheet(`${name}_テキストマスター`, rows);
+                    result.text_master = await createGoogleSheet(`${name}_テキストマスター`, rows, existing.text_master);
                 }
 
                 // 3. 宣伝予算表 → Google Sheets
                 if (strc.budget) {
-                    updateProgress('宣伝予算表作成中...');
+                    updateProgress('宣伝予算表書き出し中...');
                     const bd = strc.budget;
                     const rows = [];
                     if (bd.headers) rows.push(bd.headers);
@@ -1291,20 +1337,24 @@
                         (sec.rows || []).forEach(row => rows.push(row));
                         rows.push([]);
                     });
-                    urls.budget = await createGoogleSheet(`${name}_宣伝予算表`, rows);
+                    result.budget = await createGoogleSheet(`${name}_宣伝予算表`, rows, existing.budget);
                 }
 
                 // 4. ガントチャート → Google Sheets
                 if (strc.timeline && strc.timeline.length > 0) {
-                    updateProgress('ガントチャート作成中...');
+                    updateProgress('ガントチャート書き出し中...');
                     const ganttRows = buildGanttSheetData(strc.timeline, name);
-                    urls.gantt = await createGoogleSheet(`${name}_ガントチャート`, ganttRows);
+                    result.gantt = await createGoogleSheet(`${name}_ガントチャート`, ganttRows, existing.gantt);
                 }
 
-                // URLをプロジェクトに保存（undefinedを除去）
+                // URL・IDをプロジェクトに保存
                 const cleanUrls = {};
-                Object.entries(urls).forEach(([k, v]) => { if (v) cleanUrls[k] = v; });
+                const cleanIds = {};
+                Object.entries(result).forEach(([k, v]) => {
+                    if (v) { cleanUrls[k] = v.url; cleanIds[k] = v.id; }
+                });
                 p.exported_urls = cleanUrls;
+                p.exported_ids = cleanIds;
                 saveProject(projectId, p);
                 renderProjectList();
 
@@ -5228,8 +5278,9 @@ ${fieldDefs}
     </script>
 
     <footer style="margin-top:80px;padding:24px 40px;border-top:1px solid #1a1a2e;">
-        <div style="max-width:1200px;margin:0 auto;text-align:center;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;">
             <div style="font-size:11px;color:#27272a;">&copy; 2026 RASEN Inc.</div>
+            <div style="font-size:10px;color:#3f3f46;">最終更新: 2026/03/28 17:46</div>
         </div>
     </footer>
 </body>
