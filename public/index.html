@@ -1178,40 +1178,34 @@
             // 日付でソート
             const sorted = [...timeline].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-            // 月ごとにグループ化
-            const monthGroups = {};
-            sorted.forEach(entry => {
-                const d = entry.date || '';
-                const m = d.match(/^(\d{4})[\/\-](\d{1,2})/);
-                const monthKey = m ? `${m[1]}年${m[2]}月` : '日付未定';
-                if (!monthGroups[monthKey]) monthGroups[monthKey] = [];
-                monthGroups[monthKey].push(entry);
-            });
+            // 短い日付フォーマット: "2026/01/15" → "1/15"
+            function shortDate(d) {
+                const m = (d || '').match(/(\d{1,2})[\/\-](\d{1,2})$/);
+                return m ? `${parseInt(m[1])}/${m[2]}` : d || '';
+            }
 
-            Object.entries(monthGroups).forEach(([month, entries]) => {
-                // 見出し1: 月
-                blocks.push({ text: `${month}\n`, style: 'HEADING_1' });
-                entries.forEach(entry => {
-                    // 見出し2: 日付 + カテゴリ + タイトル
-                    const dateStr = entry.date || '';
-                    const cat = entry.category ? `【${entry.category}】` : '';
-                    blocks.push({ text: `${dateStr} ${cat} ${entry.title || ''}\n`, style: 'HEADING_2' });
-                    // 中項目
-                    if (entry.items) {
-                        entry.items.forEach(item => {
-                            const itemText = typeof item === 'string' ? item : item.text || '';
-                            if (itemText) {
-                                blocks.push({ text: `${itemText}\n`, style: 'HEADING_3' });
-                                if (item.children) {
-                                    item.children.forEach(c => {
-                                        const cText = typeof c === 'string' ? c : c.text || '';
-                                        if (cText) blocks.push({ text: `• ${cText}\n`, style: 'NORMAL_TEXT' });
-                                    });
-                                }
+            sorted.forEach(entry => {
+                // 見出し2: 日付：タイトル
+                const ds = shortDate(entry.date);
+                blocks.push({ text: `${ds}：${entry.title || ''}\n`, style: 'HEADING_2' });
+                // 中項目 → 箇条書き（見出し3）
+                if (entry.items) {
+                    entry.items.forEach(item => {
+                        const itemText = typeof item === 'string' ? item : item.text || '';
+                        if (itemText) {
+                            blocks.push({ text: `・${itemText}\n`, style: 'NORMAL_TEXT' });
+                            // 子項目 → 本文
+                            if (item.children) {
+                                item.children.forEach(c => {
+                                    const cText = typeof c === 'string' ? c : c.text || '';
+                                    if (cText) blocks.push({ text: `${cText}\n`, style: 'NORMAL_TEXT' });
+                                });
                             }
-                        });
-                    }
-                });
+                        }
+                    });
+                }
+                // 空行
+                blocks.push({ text: '\n', style: 'NORMAL_TEXT' });
             });
 
             // 3. batchUpdateリクエスト構築（insertTextは末尾から逆順）
