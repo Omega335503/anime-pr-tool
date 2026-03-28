@@ -227,6 +227,7 @@
             padding: 20px; margin-bottom: 12px; transition: border-color 0.2s;
         }
         .project-card:hover { border-color: #3f3f46; }
+        .project-card.drag-over { border-color: #6366f1; border-style: dashed; }
         .project-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .project-card-title { font-size: 16px; font-weight: 700; color: #fff; }
         .project-card-actions { display: flex; gap: 6px; }
@@ -1768,7 +1769,8 @@
             const sharedItems = _sharedProjectsCache || [];
 
             const allProjects = [];
-            ownKeys.forEach(id => {
+            const sortedOwnKeys = getSortedProjectKeys(ownKeys);
+            sortedOwnKeys.forEach(id => {
                 const p = projects[id];
                 allProjects.push({ id, name: p.name, timeline: p.structured?.timeline, project: p, shared: false });
             });
@@ -2245,10 +2247,61 @@
             }
         }
 
+        function getProjectOrder() {
+            const uid = firebaseAuth.currentUser?.uid || 'anon';
+            try { return JSON.parse(localStorage.getItem('project_order_' + uid) || '[]'); } catch(e) { return []; }
+        }
+        function saveProjectOrder(order) {
+            const uid = firebaseAuth.currentUser?.uid || 'anon';
+            localStorage.setItem('project_order_' + uid, JSON.stringify(order));
+        }
+        function getSortedProjectKeys(keys) {
+            const order = getProjectOrder();
+            const sorted = [];
+            order.forEach(id => { if (keys.includes(id)) sorted.push(id); });
+            keys.forEach(id => { if (!sorted.includes(id)) sorted.push(id); });
+            return sorted;
+        }
+
+        let _dragSrcId = null;
+        function onProjectDragStart(e, id) {
+            _dragSrcId = id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.closest('.project-card').style.opacity = '0.4';
+        }
+        function onProjectDragEnd(e) {
+            e.target.closest('.project-card').style.opacity = '1';
+        }
+        function onProjectDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const card = e.target.closest('.project-card');
+            if (card) card.classList.add('drag-over');
+        }
+        function onProjectDragLeave(e) {
+            const card = e.target.closest('.project-card');
+            if (card) card.classList.remove('drag-over');
+        }
+        function onProjectDrop(e, targetId) {
+            e.preventDefault();
+            if (!_dragSrcId || _dragSrcId === targetId) return;
+            const keys = getSortedProjectKeys(Object.keys(getProjects()));
+            const fromIdx = keys.indexOf(_dragSrcId);
+            const toIdx = keys.indexOf(targetId);
+            if (fromIdx < 0 || toIdx < 0) return;
+            keys.splice(fromIdx, 1);
+            keys.splice(toIdx, 0, _dragSrcId);
+            saveProjectOrder(keys);
+            renderProjectList();
+            // ダッシュボードも再レンダリング
+            _tabInitialized.dashboard = false;
+        }
+
         function renderProjectList() {
             const projects = getProjects();
             const list = document.getElementById("project-list");
-            const keys = Object.keys(projects);
+            const allKeys = Object.keys(projects);
+            const keys = getSortedProjectKeys(allKeys);
 
             if (keys.length === 0) {
                 list.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><span class="material-symbols-outlined" style="font-size:48px;">folder</span></div><div class="empty-state-text">まだプロジェクトが登録されていません</div></div>';
@@ -2289,9 +2342,12 @@
                         </div>`;
                     }).join('');
 
-                    return `<div class="project-card">
+                    return `<div class="project-card" draggable="true" ondragstart="onProjectDragStart(event,'${id}')" ondragend="onProjectDragEnd(event)" ondragover="onProjectDragOver(event)" ondragleave="onProjectDragLeave(event)" ondrop="onProjectDrop(event,'${id}')">
                         <div class="project-card-header">
-                            <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name)}</div>
+                            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                                <span class="material-symbols-outlined" style="font-size:18px;color:#52525b;cursor:grab;user-select:none;flex-shrink:0;" title="ドラッグで並び替え">drag_indicator</span>
+                                <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')" style="min-width:0;">▶ ${escapeHtml(p.name)}</div>
+                            </div>
                             <div class="project-card-actions">
                                 <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
                                 <button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> ${p.exported_urls ? '再書き出し' : '書き出し'}</button>
