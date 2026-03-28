@@ -768,7 +768,7 @@
                         <!-- 企画立案セクション -->
                         <div class="input-section" style="border-left:3px solid #6366f1;padding:14px;margin-bottom:12px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                                <h3 style="color:#e4e4e7;font-size:14px;margin:0;" id="tweet-editor-title">ツイート編集</h3>
+                                <h3 style="color:#e4e4e7;font-size:14px;margin:0;display:flex;align-items:center;gap:4px;" id="tweet-editor-title">ツイート編集: <input id="tweet-task-name-input" type="text" value="" placeholder="施策名" style="background:transparent;border:none;border-bottom:1px solid #3f3f46;color:#e4e4e7;font-size:14px;font-weight:600;padding:0 4px;width:160px;outline:none;" oninput="autoSaveTweet()"></h3>
                                 <span id="tweet-editor-status" style="padding:2px 8px;border-radius:10px;font-size:10px;background:#27272a;color:#a1a1aa;">下書き</span>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
@@ -3335,7 +3335,7 @@
             });
             html += '</tr>';
 
-            const todayBg = 'background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.35);';
+            const todayBg = 'background:rgba(234,179,8,0.15);box-shadow:inset 0 0 0 1px rgba(234,179,8,0.4);';
             CATEGORIES.forEach(catName => {
                 const events = catEvents[catName];
                 const eventKeys = Object.keys(events);
@@ -3356,7 +3356,7 @@
                             const items = events[key] || [];
                             const isTodayCol = ci === todayColIndex;
                             if (row < items.length) {
-                                const eventTodayStyle = isTodayCol ? 'background:rgba(234,179,8,0.35);border:1px solid rgba(234,179,8,0.5);color:#fbbf24;' : '';
+                                const eventTodayStyle = isTodayCol ? 'background:rgba(234,179,8,0.3);box-shadow:inset 0 0 0 1px rgba(234,179,8,0.5);color:#fbbf24;' : '';
                                 html += `<td class="gantt-event" style="${eventTodayStyle}" onclick="showGanttDetail(${items[row].idx}, this)" title="${escapeHtml(items[row].text)}">${escapeHtml(items[row].text)}</td>`;
                             } else { html += `<td${isTodayCol ? ` style="${todayBg}"` : ''}></td>`; }
                             ci++;
@@ -4015,7 +4015,7 @@ ${fieldDefs}
             _tweetImages = [];
             document.getElementById("tweet-editor-panel").style.display = "";
             document.getElementById("legacy-content-form").style.display = "none";
-            document.getElementById("tweet-editor-title").textContent = `ツイート編集: ${ctx.taskTitle}`;
+            document.getElementById("tweet-task-name-input").value = ctx.taskTitle || '';
 
             // 日付設定
             if (ctx.date && ctx.date !== "日付未定") {
@@ -4231,6 +4231,7 @@ ${fieldDefs}
 
             const draft = {
                 taskRef: taskVal,
+                taskName: document.getElementById("tweet-task-name-input")?.value || "",
                 _templateKey: _currentTweetContext._templateKey || "",
                 taskFields: collectTaskFieldData(),
                 postDate: document.getElementById("tweet-post-date").value,
