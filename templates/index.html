@@ -1209,8 +1209,10 @@
                     urls.gantt = await createGoogleSheet(`${name}_ガントチャート`, ganttRows);
                 }
 
-                // URLをプロジェクトに保存
-                p.exported_urls = urls;
+                // URLをプロジェクトに保存（undefinedを除去）
+                const cleanUrls = {};
+                Object.entries(urls).forEach(([k, v]) => { if (v) cleanUrls[k] = v; });
+                p.exported_urls = cleanUrls;
                 saveProject(projectId, p);
                 renderProjectList();
 
