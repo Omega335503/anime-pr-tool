@@ -1435,6 +1435,13 @@
                 el.id = 'login-debug';
                 el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:#18181b;border-top:2px solid #ef4444;padding:8px 12px;font-family:monospace;font-size:11px;z-index:99999;color:#a1a1aa;';
                 document.body.appendChild(el);
+                // 閉じるボタン
+                const closeBtn = document.createElement('button');
+                closeBtn.textContent = '×';
+                closeBtn.style.cssText = 'position:absolute;top:4px;right:8px;background:none;border:none;color:#71717a;cursor:pointer;font-size:16px;z-index:1;';
+                closeBtn.onclick = () => el.remove();
+                el.style.position = 'fixed';
+                el.appendChild(closeBtn);
             }
             const line = document.createElement('div');
             line.style.color = isError ? '#ef4444' : '#6366f1';
