@@ -1790,9 +1790,12 @@
                 const uid = 'dash_' + idx;
                 const hasData = ap.timeline && ap.timeline.length;
                 const sharedLabel = ap.shared ? ' <span style="font-size:10px;color:#71717a;font-weight:400;">(共有)</span>' : '';
-                html += `<div class="input-section" style="margin-bottom:12px;padding:0;">`;
+                const draggable = !ap.shared ? `draggable="true" ondragstart="onDashDragStart(event,'${ap.id}')" ondragend="onDashDragEnd(event)" ondragover="onDashDragOver(event)" ondragleave="onDashDragLeave(event)" ondrop="onDashDrop(event,'${ap.id}')"` : '';
+                html += `<div class="input-section" style="margin-bottom:12px;padding:0;" ${draggable}>`;
                 html += `<div onclick="toggleDashAccordion('${uid}')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;">`;
-                html += `<div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined dash-arrow" id="dash-arrow-${uid}" style="font-size:16px;color:#71717a;transition:transform 0.2s;transform:rotate(90deg);">chevron_right</span><span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(ap.name)}</span>${sharedLabel}</div>`;
+                html += `<div style="display:flex;align-items:center;gap:8px;">`;
+                if (!ap.shared) html += `<span class="material-symbols-outlined" style="font-size:18px;color:#52525b;cursor:grab;user-select:none;flex-shrink:0;" title="ドラッグで並び替え" onmousedown="event.stopPropagation()">drag_indicator</span>`;
+                html += `<span class="material-symbols-outlined dash-arrow" id="dash-arrow-${uid}" style="font-size:16px;color:#71717a;transition:transform 0.2s;transform:rotate(90deg);">chevron_right</span><span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(ap.name)}</span>${sharedLabel}</div>`;
                 if (!hasData) html += `<span style="font-size:11px;color:#52525b;">データなし</span>`;
                 html += `</div>`;
                 html += `<div id="dash-body-${uid}" style="border-top:1px solid #27272a;padding:16px 20px;">`;
@@ -1833,6 +1836,43 @@
             btnEl.classList.add('active');
             document.getElementById('dash-tab-' + uid + '-gantt').style.display = tab === 'gantt' ? '' : 'none';
             document.getElementById('dash-tab-' + uid + '-calendar').style.display = tab === 'calendar' ? '' : 'none';
+        }
+
+        // ダッシュボードのドラッグ並び替え
+        let _dashDragSrcId = null;
+        function onDashDragStart(e, id) {
+            _dashDragSrcId = id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.closest('.input-section').style.opacity = '0.4';
+        }
+        function onDashDragEnd(e) {
+            e.target.closest('.input-section').style.opacity = '1';
+        }
+        function onDashDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const card = e.target.closest('.input-section');
+            if (card) card.style.borderColor = '#6366f1';
+        }
+        function onDashDragLeave(e) {
+            const card = e.target.closest('.input-section');
+            if (card) card.style.borderColor = '';
+        }
+        function onDashDrop(e, targetId) {
+            e.preventDefault();
+            const card = e.target.closest('.input-section');
+            if (card) card.style.borderColor = '';
+            if (!_dashDragSrcId || _dashDragSrcId === targetId) return;
+            const keys = getSortedProjectKeys(Object.keys(getProjects()));
+            const fromIdx = keys.indexOf(_dashDragSrcId);
+            const toIdx = keys.indexOf(targetId);
+            if (fromIdx < 0 || toIdx < 0) return;
+            keys.splice(fromIdx, 1);
+            keys.splice(toIdx, 0, _dashDragSrcId);
+            saveProjectOrder(keys);
+            renderDashboard();
+            // プロジェクト管理タブも再レンダリング
+            _tabInitialized.projects = false;
         }
 
         // ===== コンテンツ生成 =====
@@ -5411,7 +5451,7 @@ ${fieldDefs}
 
     <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Inc.</div>
+            <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Corp.</div>
             <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: __DEPLOY_TIMESTAMP__</div>
         </div>
     </footer>
