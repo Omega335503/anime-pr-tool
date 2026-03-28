@@ -2765,6 +2765,7 @@
                 const scrollTop = window.scrollY;
                 tabContent.innerHTML = renderStructuredContent('timeline', p.structured?.timeline, true, pid);
                 requestAnimationFrame(() => window.scrollTo(0, scrollTop));
+                _refreshRelatedTabs(el);
             } else {
                 refreshPreviewTab('timeline');
             }
@@ -2812,6 +2813,32 @@
             if (!tl) return;
             tl[parseInt(el.dataset.ei)].category = el.value;
             saveEditTarget();
+            _refreshRelatedTabs(el);
+        }
+
+        // タイムライン/テキストマスター編集後にガントチャート・発信カレンダーを再描画
+        function _refreshRelatedTabs(el) {
+            const tabContent = el ? el.closest('[data-project-id]') : null;
+            const pid = tabContent?.dataset?.projectId || _editingProjectId;
+            if (!pid) return;
+            const projects = getProjects();
+            const p = projects[pid];
+            if (!p) return;
+            // ガントチャート再描画
+            const ganttTab = document.getElementById(`dtab-${pid}-gantt`);
+            if (ganttTab) {
+                ganttTab.innerHTML = renderGanttChart(p.structured?.timeline, p.name);
+            }
+            // 発信カレンダー再描画
+            const calTab = document.getElementById(`dtab-${pid}-tweet_calendar`);
+            if (calTab) {
+                calTab.innerHTML = renderTweetCalendar(pid, p);
+            }
+            // ダッシュボードのガントチャートも再描画
+            const dashGantt = document.querySelector(`[id^="dash-tab-"][id$="-gantt"]`);
+            if (dashGantt && dashGantt.id.includes(pid.substring(0, 8))) {
+                dashGantt.innerHTML = renderGanttChart(p.structured?.timeline, p.name);
+            }
         }
 
         // タイムライン→予算表の連動: エントリ追加時に予算行も追加
@@ -3209,6 +3236,7 @@
             else if (field === 'label') { tl[ei].items[parseInt(el.dataset.ii)].label = el.value; }
             else if (field === 'child') { tl[ei].items[parseInt(el.dataset.ii)].children[parseInt(el.dataset.ci)] = el.value; }
             saveEditTarget();
+            _refreshRelatedTabs(el);
         }
 
         function onTableEdit(el) {
