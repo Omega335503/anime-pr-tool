@@ -3245,6 +3245,7 @@
             }
             // 現在編集中のtaskRefを保持（task-selectにない場合も保存に使う）
             window._currentTaskRef = taskRef;
+            if (!found) taskSelect.value = ""; // task-selectにない場合はクリア（_currentTaskRefが使われる）
             // カレンダー行ハイライト
             document.querySelectorAll('.cal-row-active').forEach(r => r.classList.remove('cal-row-active'));
             document.querySelectorAll(`tr[data-taskref="${taskRef}"]`).forEach(r => r.classList.add('cal-row-active'));
@@ -4323,8 +4324,9 @@ ${fieldDefs}
         }
 
         function syncCalendarRow(taskRef, draft) {
-            const rows = document.querySelectorAll(`tr[data-taskref="${taskRef}"]`);
-            rows.forEach(row => {
+            const rows = document.querySelectorAll('tr[data-taskref]');
+            const matchedRows = Array.from(rows).filter(r => r.dataset.taskref === taskRef);
+            matchedRows.forEach(row => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length >= 4) {
                     // 日付
