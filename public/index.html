@@ -279,7 +279,7 @@
         .gantt-table .gantt-cat { position: sticky; left: 0; z-index: 2; background: #18181b; width: 100px; min-width: 100px; max-width: 100px; font-weight: bold; font-size: 11px; }
         .gantt-table .gantt-month { background: #1F4E79; color: #fff; text-align: center; font-weight: bold; font-size: 11px; }
         .gantt-table .gantt-week { background: #09090b; color: #a1a1aa; text-align: center; font-size: 9px; }
-        .gantt-table .gantt-year { background: #1a1a2e; color: #a1a1aa; font-size: 11px; font-weight: 600; text-align: center; padding: 4px 0; }
+        .gantt-table .gantt-year { background: #1e293b; color: #cbd5e1; font-size: 11px; font-weight: 700; text-align: center; padding: 4px 0; border: 1px solid #334155; }
         .gantt-table .gantt-event { background: #1e3a5f; color: #93c5fd; font-size: 9px; border-radius: 2px; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .gantt-cat-プレスリリース { background: #3b1c1c !important; }
         .gantt-cat-WEB\/HP, [class*="gantt-cat-WEB"] { background: #1c2e1c !important; }
@@ -377,7 +377,7 @@
 
         /* 編集可能テーブル */
         .editable-table-wrap { max-height: 500px; overflow: auto; }
-        .editable-table { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+        .editable-table { border-collapse: collapse; font-size: 12px; min-width: 100%; table-layout: auto; }
         .editable-table th {
             background: #27272a; padding: 8px 12px; text-align: left; font-size: 11px;
             font-weight: 700; color: #a1a1aa; position: sticky; top: 0; border-bottom: 2px solid #6366f1;
@@ -3315,22 +3315,40 @@
             let html = '<div class="gantt-layout">';
             html += `<div class="gantt-main"><div class="gantt-wrapper" id="${ganttUid}"><table class="gantt-table">`;
 
-            // 月ヘッダー
+            // 年ヘッダー行
             html += '<tr><th class="gantt-cat"></th>';
-            let lastShownYear = null;
+            let prevYear = null;
+            let yearSpans = [];
             months.forEach(m => {
-                let label;
-                if (m.year !== lastShownYear) {
-                    label = `${m.year}年 ${m.month}月`;
-                    lastShownYear = m.year;
-                } else {
-                    label = `${m.month}月`;
+                if (m.year !== prevYear) {
+                    if (prevYear !== null) yearSpans.push({ year: prevYear, count: yearSpans.length ? yearSpans[yearSpans.length-1]._runCount : 0 });
+                    prevYear = m.year;
                 }
-                html += `<th colspan="4" class="gantt-month">${label}</th>`;
+            });
+            // 簡易: 年ごとの月数をカウント
+            prevYear = null;
+            let yearCount = 0;
+            months.forEach((m, i) => {
+                if (prevYear !== null && m.year !== prevYear) {
+                    html += `<th colspan="${yearCount * 4}" class="gantt-year">${prevYear}年</th>`;
+                    yearCount = 0;
+                }
+                prevYear = m.year;
+                yearCount++;
+                if (i === months.length - 1) {
+                    html += `<th colspan="${yearCount * 4}" class="gantt-year">${prevYear}年</th>`;
+                }
             });
             html += '</tr>';
 
-            html += '<tr><th class="gantt-cat"></th>';
+            // 月ヘッダー行
+            html += '<tr><th class="gantt-cat">実施項目</th>';
+            months.forEach(m => {
+                html += `<th colspan="4" class="gantt-month">${m.month}月</th>`;
+            });
+            html += '</tr>';
+
+            html += '<tr><th class="gantt-cat" style="border-top:none;"></th>';
             let colIdx = 0;
             months.forEach(m => {
                 for (let w = 1; w <= 4; w++) {
