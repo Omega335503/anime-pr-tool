@@ -1066,7 +1066,7 @@
             if (typeof google === 'undefined' || !google.accounts?.oauth2) return;
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: GOOGLE_CLIENT_ID,
-                scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/documents',
+                scope: 'https://www.googleapis.com/auth/drive.file',
                 callback: (resp) => {
                     if (resp.access_token) {
                         googleAccessToken = resp.access_token;
