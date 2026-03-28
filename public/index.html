@@ -5097,23 +5097,48 @@ ${fieldDefs}
                     .where("ownerUid", "==", user.uid)
                     .get();
 
-                if (snapshot.empty) {
-                    list.innerHTML = '<p style="color:#52525b;font-size:13px;">まだ誰とも共有されていません</p>';
-                    return;
+                // オーナー（自分）のプロフィール取得
+                const myEmail = user.email || "";
+                const allEmails = [myEmail, ...snapshot.docs.map(d => d.data().sharedWith)];
+                const profiles = {};
+                await Promise.all(allEmails.map(async email => { profiles[email] = await getProfileByEmail(email); }));
+
+                function shareMemberCard(email, role, roleColor, bg, removeBtn) {
+                    const p = profiles[email] || {};
+                    const name = p.customName || p.displayName || email.split('@')[0];
+                    const company = p.company || "";
+                    const photo = p.photoURL || "";
+                    const isMe = email === myEmail;
+                    const avatarHtml = photo
+                        ? `<img src="${photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`
+                        : `<div style="width:32px;height:32px;border-radius:50%;background:${roleColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;">${(name[0] || '?').toUpperCase()}</div>`;
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${bg};border-radius:8px;margin-bottom:6px;${isMe ? 'border:1px solid ' + roleColor : ''}">
+                        ${avatarHtml}
+                        <div style="flex:1;min-width:0;">
+                            <div style="color:#e4e4e7;font-size:13px;font-weight:600;">${escapeHtml(name)}${isMe ? ' <span style="color:#fbbf24;font-weight:400;">（自分）</span>' : ''}</div>
+                            ${company ? `<div style="color:#a1a1aa;font-size:11px;">${escapeHtml(company)}</div>` : ''}
+                            <div style="color:#71717a;font-size:11px;">${escapeHtml(email)}</div>
+                        </div>
+                        <span style="color:${roleColor};font-size:11px;white-space:nowrap;">${role}</span>
+                        ${removeBtn || ''}
+                    </div>`;
                 }
 
-                list.innerHTML = snapshot.docs.map(doc => {
+                let html = shareMemberCard(myEmail, "オーナー", "#4ade80", "#1a3a1a", "");
+                snapshot.docs.forEach(doc => {
                     const s = doc.data();
-                    const roleLabel = s.role === "editor" ? "編集者" : "閲覧者";
-                    const roleClass = s.role === "editor" ? "share-role-editor" : "share-role-viewer";
-                    return `<div class="share-item">
-                        <div class="share-item-info">
-                            <span class="share-item-email">${escapeHtml(s.sharedWith)}</span>
-                            <span class="share-item-role ${roleClass}">${roleLabel}</span>
-                        </div>
-                        <button class="share-item-remove" onclick="removeShare('${doc.id}', '${escapeHtml(projectId)}')">&times;</button>
-                    </div>`;
-                }).join("");
+                    const rl = s.role === "editor" ? "編集者" : "閲覧者";
+                    const color = s.role === "editor" ? "#60a5fa" : "#a1a1aa";
+                    const bg = s.role === "editor" ? "#1a2a4a" : "#27272a";
+                    const removeHtml = `<button onclick="removeShare('${doc.id}', '${escapeHtml(projectId)}')" style="background:none;border:1px solid transparent;color:#52525b;cursor:pointer;font-size:13px;padding:2px 8px;border-radius:4px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#52525b'">&times;</button>`;
+                    html += shareMemberCard(s.sharedWith, rl, color, bg, removeHtml);
+                });
+
+                if (snapshot.empty) {
+                    html += '<p style="color:#52525b;font-size:13px;margin-top:8px;">まだ他のメンバーはいません</p>';
+                }
+
+                list.innerHTML = html;
             } catch(err) {
                 console.error("[Share] Load members error:", err);
                 list.innerHTML = '<p style="color:#ef4444;font-size:13px;">読み込みに失敗しました</p>';
@@ -5471,7 +5496,7 @@ ${fieldDefs}
     <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Corp.</div>
-            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/28 19:02</div>
+            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/29 01:00</div>
         </div>
     </footer>
 </body>
