@@ -2864,8 +2864,11 @@
                 const isRel = relCols.has(ci);
                 if (editable && isRel) {
                     html += `<th class="release-col" style="position:relative;"><input value="${escapeHtml(h)}" style="background:transparent;border:none;color:#818cf8;font-size:11px;font-weight:700;text-align:center;width:70px;outline:none;" data-ci="${ci}" onchange="onHeaderEdit(this)"><button onclick="removeReleaseColumn(${ci})" style="position:absolute;top:2px;right:2px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;padding:0;line-height:1;" title="列を削除">×</button></th>`;
+                } else if (editable && ci >= 2) {
+                    // 3列目以降の通常列にも削除ボタン
+                    html += `<th style="position:relative;">${escapeHtml(h)}<button onclick="removeReleaseColumn(${ci})" style="position:absolute;top:2px;right:2px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;padding:0;line-height:1;" title="列を削除">×</button></th>`;
                 } else {
-                    html += `<th${isRel ? ' class="release-col"' : ''}>${escapeHtml(h)}</th>`;
+                    html += `<th>${escapeHtml(h)}</th>`;
                 }
             });
             if (editable) {
@@ -3068,7 +3071,15 @@
             const p = getProjects()[projectId];
             const data = p?.structured?.[docType];
             if (!data) return;
+            const scrollable = tabEl.querySelector('.tl-tree, .editable-table-wrap');
+            const scrollTop = scrollable ? scrollable.scrollTop : 0;
+            const pageScrollTop = window.scrollY;
             tabEl.innerHTML = renderStructuredContent(docType, data, true, projectId);
+            requestAnimationFrame(() => {
+                const newScrollable = tabEl.querySelector('.tl-tree, .editable-table-wrap');
+                if (newScrollable) newScrollable.scrollTop = scrollTop;
+                window.scrollTo(0, pageScrollTop);
+            });
         }
 
         // 解禁●トグル
