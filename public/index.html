@@ -2126,7 +2126,7 @@
                             <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')">▶ ${escapeHtml(p.name)}</div>
                             <div class="project-card-actions">
                                 <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
-                                ${p.exported_urls ? '' : `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> 書き出し</button>`}
+                                <button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> ${p.exported_urls ? '再書き出し' : '書き出し'}</button>
                                 <button onclick="showReExtractDialog('${id}')">再抽出</button>
                                 <button class="delete" onclick="removeProjectUI('${id}')">削除</button>
                             </div>
@@ -4921,7 +4921,7 @@ ${fieldDefs}
                     const sharedActions = `
                         <div class="project-card-actions">
                             <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
-                            ${isEditor && !p.exported_urls ? `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> 書き出し</button>` : ''}
+                            ${isEditor ? `<button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> ${p.exported_urls ? '再書き出し' : '書き出し'}</button>` : ''}
                             ${isEditor ? `<button onclick="showReExtractDialog('${id}')">再抽出</button>` : ''}
                         </div>`;
 
