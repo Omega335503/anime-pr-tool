@@ -2927,7 +2927,8 @@
                 });
                 html += '</tbody></table></div>';
 
-                // サマリー表示（常に表示、データなければ0で初期化）
+                // サマリーを再計算してから表示
+                recalcBudgetSummary(data, null);
                 const s = data._budget_summary || {};
                 {
                     const fmt = (v) => { const n = parseInt(String(v||0).replace(/[,，円¥]/g, '')); return isNaN(n) ? '0円' : n.toLocaleString() + '円'; };
@@ -3154,7 +3155,8 @@
                     const estimate = parseNum(row[5]);
                     const actual = parseNum(row[6]);
                     const amount = actual || estimate;
-                    const isMust = (row[7] || 'マスト') === 'マスト';
+                    const typeVal = (row[7] || 'マスト').toString();
+                    const isMust = typeVal.includes('マスト') || (!typeVal.includes('オプション'));
                     if (isMust) mustTotal += amount; else optTotal += amount;
                     const cat = row[0] || 'その他';
                     catTotals[cat] = (catTotals[cat] || 0) + amount;
