@@ -3115,7 +3115,15 @@
             Object.keys(drafts).forEach(key => {
                 if (!allTasks.find(t => t.key === key)) {
                     const d = drafts[key];
-                    allTasks.push({ key, date: d.postDate || "", category: "その他", taskName: "手動追加", type: "tweet" });
+                    allTasks.push({ key, date: d.postDate || "", category: "その他", taskName: d.taskName || "手動追加", type: "tweet" });
+                }
+            });
+            // PR下書きの手動追加分
+            const prDrafts = project.prDrafts || {};
+            Object.keys(prDrafts).forEach(key => {
+                if (!allTasks.find(t => t.key === key)) {
+                    const d = prDrafts[key];
+                    allTasks.push({ key, date: "", category: "プレスリリース", taskName: d.taskName || "手動追加", type: "pr" });
                 }
             });
             allTasks.sort((a, b) => {
@@ -3133,16 +3141,29 @@
 
                 const rows = tasks.map(task => {
                     const d = drafts[task.key];
-                    const hasDraft = !!d;
+                    const pd = prDrafts[task.key];
+                    const hasDraft = !!(d || pd);
                     const status = d ? (d.status || "draft") : "not_started";
                     const st = statusMap[status];
+                    // 施策名: 下書きの名前 > タイムラインの名前
+                    const displayName = d?.taskName || pd?.taskName || task.taskName;
+                    // 内容プレビュー: body > taskFieldsの値 > PRフォームの値
                     const body = d?.body || "";
-                    const preview = body ? escapeHtml(body.replace(/\n/g, " ")).slice(0, 25) + (body.length > 25 ? "…" : "") : "";
+                    let preview = "";
+                    if (body) {
+                        preview = escapeHtml(body.replace(/\n/g, " ")).slice(0, 25) + (body.length > 25 ? "…" : "");
+                    } else if (d?.taskFields && Object.values(d.taskFields).some(v => v)) {
+                        const firstVal = Object.values(d.taskFields).find(v => v) || "";
+                        preview = escapeHtml(String(firstVal).replace(/\n/g, " ")).slice(0, 25);
+                    } else if (pd?.formData && Object.values(pd.formData).some(v => v)) {
+                        const firstVal = Object.values(pd.formData).find(v => v) || "";
+                        preview = escapeHtml(String(firstVal).replace(/\n/g, " ")).slice(0, 25);
+                    }
                     const date = d?.postDate || task.date || "未定";
                     const rowBg = !hasDraft ? "rgba(63,63,70,0.15)" : "";
                     return `<tr data-taskref="${escapeHtml(task.key)}" style="border-bottom:1px solid #27272a;cursor:pointer;background:${rowBg};" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
                         <td style="padding:5px 6px;white-space:nowrap;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#52525b'};">${escapeHtml(date)}</td>
-                        <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(task.taskName)}</td>
+                        <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(displayName)}</td>
                         <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#a1a1aa' : '#3f3f46'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
                         <td style="padding:5px 6px;"><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:${st.bg};color:${st.color};">${st.label}</span></td>
                     </tr>`;
