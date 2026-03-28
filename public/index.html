@@ -2117,7 +2117,10 @@
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
                 Object.entries(projects).forEach(([id, data]) => {
-                    db.collection("users").doc(uid).collection("projects").doc(id).set(data)
+                    const mainData = {...data};
+                    delete mainData.documents;
+                    const firestoreData = prepareForFirestore(mainData);
+                    db.collection("users").doc(uid).collection("projects").doc(id).set(firestoreData)
                         .then(() => appLog("info", "Firestore", "saveProjects OK: " + id))
                         .catch(err => appLog("error", "Firestore", "save error: " + err));
                 });
@@ -2659,7 +2662,8 @@
         function saveEditTarget() {
             if (_editingProjectId && !pendingExtract) {
                 const projects = getProjects();
-                saveProjects(projects);
+                const p = projects[_editingProjectId];
+                if (p) saveProject(_editingProjectId, p);
             }
         }
 
@@ -5496,7 +5500,7 @@ ${fieldDefs}
     <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Corp.</div>
-            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/29 01:02</div>
+            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/29 01:05</div>
         </div>
     </footer>
 </body>

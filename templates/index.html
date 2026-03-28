@@ -2117,7 +2117,10 @@
             const uid = firebaseAuth.currentUser?.uid;
             if (uid) {
                 Object.entries(projects).forEach(([id, data]) => {
-                    db.collection("users").doc(uid).collection("projects").doc(id).set(data)
+                    const mainData = {...data};
+                    delete mainData.documents;
+                    const firestoreData = prepareForFirestore(mainData);
+                    db.collection("users").doc(uid).collection("projects").doc(id).set(firestoreData)
                         .then(() => appLog("info", "Firestore", "saveProjects OK: " + id))
                         .catch(err => appLog("error", "Firestore", "save error: " + err));
                 });
@@ -2659,7 +2662,8 @@
         function saveEditTarget() {
             if (_editingProjectId && !pendingExtract) {
                 const projects = getProjects();
-                saveProjects(projects);
+                const p = projects[_editingProjectId];
+                if (p) saveProject(_editingProjectId, p);
             }
         }
 
