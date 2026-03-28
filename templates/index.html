@@ -2663,8 +2663,26 @@
             }
         }
 
+        function _emptyTemplate(docType) {
+            if (docType === 'timeline') return [{ date: "", title: "", category: "その他", items: [{ label: "", children: [""] }] }];
+            if (docType === 'text_master') return { headers: ["項目名", "内容"], sections: [{ title: "", rows: [["", ""]] }], release_columns: [] };
+            if (docType === 'budget') return { headers: ['科目','請求月','発注先','宣伝内容','実施時期','見込み額(税抜)','実施金額(税抜)','種別','補足'], sections: [{ title: 'マスト施策', rows: [['','','','','','','','マスト','']] }], release_columns: [] };
+            return null;
+        }
+
         function renderStructuredContent(docType, data, editable = true, projectId = null) {
             if (projectId) _editingProjectId = projectId;
+            if (!data && editable) {
+                data = _emptyTemplate(docType);
+                if (data && projectId) {
+                    const projects = getProjects();
+                    if (projects[projectId]) {
+                        if (!projects[projectId].structured) projects[projectId].structured = {};
+                        projects[projectId].structured[docType] = data;
+                        saveProject(projectId, projects[projectId]);
+                    }
+                }
+            }
             if (!data) return '<div class="detail-no-data">この資料は登録されていません</div>';
             if (typeof data === 'string') return `<div class="detail-raw-content">${escapeHtml(data)}</div>`;
             if (docType === 'timeline') return renderTimeline(data, editable, projectId);
