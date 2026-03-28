@@ -2351,7 +2351,7 @@
                     const e = p.extracted || {};
                     const strc = p.structured || {};
                     const docs = p.documents || {};
-                    const tags = [e.hashtags, e.official_url ? "公式サイトあり" : ""].filter(Boolean);
+                    const tags = [e.hashtags].filter(Boolean);
 
                     // 3タブ（資料のみ。ガントチャート・発信カレンダーはダッシュボードに移動）
                     const docTabs = [
