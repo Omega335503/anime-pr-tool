@@ -1171,34 +1171,37 @@
             const doc = JSON.parse(docText);
             if (!doc.documentId) throw new Error('Doc作成: documentIdが取得できません');
 
-            // 2. テキスト挿入（末尾から先頭へ逆順で挿入）
-            // 先にすべてのテキストブロックを構築
+            // 2. 時系列順でテキストブロックを構築
             const blocks = [];
-            // タイトル
             blocks.push({ text: `${projectName} 宣伝タイムライン\n`, style: 'TITLE' });
 
-            // カテゴリでグループ化
-            const catGroups = {};
-            timeline.forEach(entry => {
-                const cat = entry.category || 'その他';
-                if (!catGroups[cat]) catGroups[cat] = [];
-                catGroups[cat].push(entry);
+            // 日付でソート
+            const sorted = [...timeline].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+            // 月ごとにグループ化
+            const monthGroups = {};
+            sorted.forEach(entry => {
+                const d = entry.date || '';
+                const m = d.match(/^(\d{4})[\/\-](\d{1,2})/);
+                const monthKey = m ? `${m[1]}年${m[2]}月` : '日付未定';
+                if (!monthGroups[monthKey]) monthGroups[monthKey] = [];
+                monthGroups[monthKey].push(entry);
             });
 
-            Object.entries(catGroups).forEach(([cat, entries]) => {
-                // 見出し1: カテゴリ
-                blocks.push({ text: `${cat}\n`, style: 'HEADING_1' });
+            Object.entries(monthGroups).forEach(([month, entries]) => {
+                // 見出し1: 月
+                blocks.push({ text: `${month}\n`, style: 'HEADING_1' });
                 entries.forEach(entry => {
-                    // 見出し2: 日付 + タイトル
+                    // 見出し2: 日付 + カテゴリ + タイトル
                     const dateStr = entry.date || '';
-                    blocks.push({ text: `${dateStr}　${entry.title || ''}\n`, style: 'HEADING_2' });
+                    const cat = entry.category ? `【${entry.category}】` : '';
+                    blocks.push({ text: `${dateStr} ${cat} ${entry.title || ''}\n`, style: 'HEADING_2' });
                     // 中項目
                     if (entry.items) {
                         entry.items.forEach(item => {
                             const itemText = typeof item === 'string' ? item : item.text || '';
                             if (itemText) {
                                 blocks.push({ text: `${itemText}\n`, style: 'HEADING_3' });
-                                // 子項目
                                 if (item.children) {
                                     item.children.forEach(c => {
                                         const cText = typeof c === 'string' ? c : c.text || '';
