@@ -1790,11 +1790,11 @@
                 const uid = 'dash_' + idx;
                 const hasData = ap.timeline && ap.timeline.length;
                 const sharedLabel = ap.shared ? ' <span style="font-size:10px;color:#71717a;font-weight:400;">(共有)</span>' : '';
-                const draggable = !ap.shared ? `draggable="true" ondragstart="onDashDragStart(event,'${ap.id}')" ondragend="onDashDragEnd(event)" ondragover="onDashDragOver(event)" ondragleave="onDashDragLeave(event)" ondrop="onDashDrop(event,'${ap.id}')"` : '';
-                html += `<div class="input-section" style="margin-bottom:12px;padding:0;" ${draggable}>`;
+                const dropEvents = !ap.shared ? `ondragover="onDashDragOver(event)" ondragleave="onDashDragLeave(event)" ondrop="onDashDrop(event,'${ap.id}')"` : '';
+                html += `<div class="input-section" style="margin-bottom:12px;padding:0;" ${dropEvents}>`;
                 html += `<div onclick="toggleDashAccordion('${uid}')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;">`;
                 html += `<div style="display:flex;align-items:center;gap:8px;">`;
-                if (!ap.shared) html += `<span class="material-symbols-outlined" style="font-size:18px;color:#52525b;cursor:grab;user-select:none;flex-shrink:0;" title="ドラッグで並び替え" onmousedown="event.stopPropagation()">drag_indicator</span>`;
+                if (!ap.shared) html += `<span class="material-symbols-outlined" draggable="true" ondragstart="onDashDragStart(event,'${ap.id}')" ondragend="onDashDragEnd(event)" style="font-size:18px;color:#52525b;cursor:grab;user-select:none;flex-shrink:0;" title="ドラッグで並び替え">drag_indicator</span>`;
                 html += `<span class="material-symbols-outlined dash-arrow" id="dash-arrow-${uid}" style="font-size:16px;color:#71717a;transition:transform 0.2s;transform:rotate(90deg);">chevron_right</span><span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(ap.name)}</span>${sharedLabel}</div>`;
                 if (!hasData) html += `<span style="font-size:11px;color:#52525b;">データなし</span>`;
                 html += `</div>`;
@@ -2382,17 +2382,17 @@
                         </div>`;
                     }).join('');
 
-                    return `<div class="project-card" draggable="true" ondragstart="onProjectDragStart(event,'${id}')" ondragend="onProjectDragEnd(event)" ondragover="onProjectDragOver(event)" ondragleave="onProjectDragLeave(event)" ondrop="onProjectDrop(event,'${id}')">
+                    return `<div class="project-card" ondragover="onProjectDragOver(event)" ondragleave="onProjectDragLeave(event)" ondrop="onProjectDrop(event,'${id}')">
                         <div class="project-card-header">
                             <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-                                <span class="material-symbols-outlined" style="font-size:18px;color:#52525b;cursor:grab;user-select:none;flex-shrink:0;" title="ドラッグで並び替え">drag_indicator</span>
+                                <span class="material-symbols-outlined" draggable="true" ondragstart="onProjectDragStart(event,'${id}')" ondragend="onProjectDragEnd(event)" style="font-size:18px;color:#52525b;cursor:grab;user-select:none;flex-shrink:0;" title="ドラッグで並び替え">drag_indicator</span>
                                 <div class="project-card-title project-card-toggle" onclick="toggleProjectDetail('${id}')" style="min-width:0;">▶ ${escapeHtml(p.name)}</div>
                             </div>
-                            <div class="project-card-actions" draggable="false" onmousedown="event.stopPropagation()">
-                                <button class="share-btn-icon" onclick="event.stopPropagation(); openShareModal('${id}')">共有</button>
-                                <button onclick="event.stopPropagation(); exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> ${p.exported_urls ? '再書き出し' : '書き出し'}</button>
-                                <button onclick="event.stopPropagation(); showReExtractDialog('${id}')">再抽出</button>
-                                <button class="delete" onclick="event.stopPropagation(); removeProjectUI('${id}')">削除</button>
+                            <div class="project-card-actions">
+                                <button onclick="exportToGoogle('${id}')" style="background:#1a7f37;border-color:#1a7f37;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">upload</span> ${p.exported_urls ? '再書き出し' : '書き出し'}</button>
+                                <button class="share-btn-icon" onclick="openShareModal('${id}')">共有</button>
+                                <button onclick="showReExtractDialog('${id}')">再抽出</button>
+                                <button class="delete" onclick="removeProjectUI('${id}')">削除</button>
                             </div>
                         </div>
                         <div class="project-card-meta">登録: ${p.created_at ? new Date(p.created_at).toLocaleDateString('ja-JP') : '不明'} <span id="member-count-${id}"></span></div>
@@ -5452,7 +5452,7 @@ ${fieldDefs}
     <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Corp.</div>
-            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/28 18:41</div>
+            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/28 18:45</div>
         </div>
     </footer>
 </body>
