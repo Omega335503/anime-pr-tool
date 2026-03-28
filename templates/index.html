@@ -230,10 +230,10 @@
         .project-card.drag-over { border-color: #6366f1; border-style: dashed; }
         .project-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .project-card-title { font-size: 16px; font-weight: 700; color: #fff; }
-        .project-card-actions { display: flex; gap: 6px; }
+        .project-card-actions { display: flex; gap: 6px; position: relative; z-index: 2; flex-shrink: 0; }
         .project-card-actions button {
             padding: 4px 10px; background: #27272a; border: 1px solid #3f3f46; border-radius: 4px;
-            color: #a1a1aa; font-size: 12px; cursor: pointer;
+            color: #a1a1aa; font-size: 12px; cursor: pointer; position: relative; z-index: 3;
         }
         .project-card-actions button:hover { background: #3f3f46; }
         .project-card-actions button.delete:hover { background: #7f1d1d; border-color: #991b1b; color: #fca5a5; }
