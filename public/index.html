@@ -307,6 +307,8 @@
         .gantt-table .gantt-event { cursor: pointer; }
         .gantt-table .gantt-event:hover { background: #2a4a6f; }
         .gantt-table .gantt-event.selected { outline: 2px solid #6366f1; }
+        .cal-row-active { background: rgba(99,102,241,0.15) !important; }
+        .cal-row-active td { color: #a5b4fc !important; }
         .detail-no-data { color: #52525b; font-size: 13px; font-style: italic; padding: 16px; text-align: center; }
 
         /* タイムラインツリー */
@@ -3123,7 +3125,7 @@
                     const preview = body ? escapeHtml(body.replace(/\n/g, " ")).slice(0, 25) + (body.length > 25 ? "…" : "") : "";
                     const date = d?.postDate || task.date || "未定";
                     const rowBg = !hasDraft ? "rgba(63,63,70,0.15)" : "";
-                    return `<tr style="border-bottom:1px solid #27272a;cursor:pointer;background:${rowBg};" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
+                    return `<tr data-taskref="${escapeHtml(task.key)}" style="border-bottom:1px solid #27272a;cursor:pointer;background:${rowBg};" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
                         <td style="padding:5px 6px;white-space:nowrap;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#52525b'};">${escapeHtml(date)}</td>
                         <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(task.taskName)}</td>
                         <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#a1a1aa' : '#3f3f46'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
@@ -3205,6 +3207,11 @@
                     break;
                 }
             }
+            // 現在編集中のtaskRefを保持（task-selectにない場合も保存に使う）
+            window._currentTaskRef = taskRef;
+            // カレンダー行ハイライト
+            document.querySelectorAll('.cal-row-active').forEach(r => r.classList.remove('cal-row-active'));
+            document.querySelectorAll(`tr[data-taskref="${taskRef}"]`).forEach(r => r.classList.add('cal-row-active'));
             if (found) {
                 // applyTask内でエディタの表示・フィールド設定を行う
                 applyTask();
@@ -3652,6 +3659,7 @@
             const projectId = document.getElementById("project-select").value;
             const val = document.getElementById("task-select").value;
             if (!projectId || !val) return;
+            window._currentTaskRef = val;
 
             const [eiStr, iiStr] = val.split(":");
             const ei = parseInt(eiStr);
@@ -4217,7 +4225,7 @@ ${fieldDefs}
         let _autoSaveTimer = null;
         function saveTweetDraft(manual) {
             const projectId = document.getElementById("project-select").value;
-            const taskVal = document.getElementById("task-select").value;
+            const taskVal = document.getElementById("task-select").value || window._currentTaskRef || "";
             if (!projectId || !taskVal) { if (manual) alert("プロジェクトと施策を選択してください"); return; }
 
             const draft = {
