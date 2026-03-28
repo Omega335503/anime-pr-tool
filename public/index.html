@@ -279,7 +279,7 @@
         .gantt-table .gantt-cat { position: sticky; left: 0; z-index: 2; background: #18181b; width: 100px; min-width: 100px; max-width: 100px; font-weight: bold; font-size: 11px; }
         .gantt-table .gantt-month { background: #1F4E79; color: #fff; text-align: center; font-weight: bold; font-size: 11px; }
         .gantt-table .gantt-week { background: #09090b; color: #a1a1aa; text-align: center; font-size: 9px; }
-        .gantt-table .gantt-year { background: #18181b; color: #71717a; font-size: 10px; }
+        .gantt-table .gantt-year { background: #1a1a2e; color: #a1a1aa; font-size: 11px; font-weight: 600; text-align: center; padding: 4px 0; }
         .gantt-table .gantt-event { background: #1e3a5f; color: #93c5fd; font-size: 9px; border-radius: 2px; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .gantt-cat-プレスリリース { background: #3b1c1c !important; }
         .gantt-cat-WEB\/HP, [class*="gantt-cat-WEB"] { background: #1c2e1c !important; }
@@ -3321,7 +3321,13 @@
             html += '</tr>';
 
             html += '<tr><th class="gantt-cat">実施項目</th>';
-            months.forEach(m => { html += `<th colspan="4" class="gantt-month">${m.month}月</th>`; });
+            let prevMY = null;
+            months.forEach(m => {
+                const showYear = (prevMY === null || m.year !== prevMY);
+                const label = showYear ? `${m.year}/${m.month}月` : `${m.month}月`;
+                prevMY = m.year;
+                html += `<th colspan="4" class="gantt-month">${label}</th>`;
+            });
             html += '</tr>';
 
             html += '<tr><th class="gantt-cat"></th>';
@@ -3335,7 +3341,7 @@
             });
             html += '</tr>';
 
-            const todayBg = 'background:rgba(234,179,8,0.15);box-shadow:inset 0 0 0 1px rgba(234,179,8,0.4);';
+            const todayBg = 'background:rgba(234,179,8,0.15);';
             CATEGORIES.forEach(catName => {
                 const events = catEvents[catName];
                 const eventKeys = Object.keys(events);
@@ -3356,7 +3362,7 @@
                             const items = events[key] || [];
                             const isTodayCol = ci === todayColIndex;
                             if (row < items.length) {
-                                const eventTodayStyle = isTodayCol ? 'background:rgba(234,179,8,0.3);box-shadow:inset 0 0 0 1px rgba(234,179,8,0.5);color:#fbbf24;' : '';
+                                const eventTodayStyle = isTodayCol ? 'background:rgba(234,179,8,0.3);color:#fbbf24;' : '';
                                 html += `<td class="gantt-event" style="${eventTodayStyle}" onclick="showGanttDetail(${items[row].idx}, this)" title="${escapeHtml(items[row].text)}">${escapeHtml(items[row].text)}</td>`;
                             } else { html += `<td${isTodayCol ? ` style="${todayBg}"` : ''}></td>`; }
                             ci++;
