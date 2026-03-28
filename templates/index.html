@@ -972,9 +972,14 @@
         <div class="modal-box">
             <button class="modal-close" onclick="closeShareModal()">&times;</button>
             <h2 id="share-modal-title">プロジェクトを共有</h2>
-            <div class="share-form">
-                <input type="email" id="share-email" placeholder="メールアドレスを入力" style="flex:1;">
+            <div class="share-form" style="position:relative;">
+                <input type="email" id="share-email" placeholder="メールアドレスを入力" style="flex:1;" oninput="onShareEmailInput(this)" autocomplete="off">
                 <button class="share-btn" onclick="sendShareInvite()">招待</button>
+                <div id="share-suggestions" style="display:none;position:absolute;top:100%;left:0;right:60px;background:#09090b;border:1px solid #3f3f46;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10;margin-top:4px;"></div>
+            </div>
+            <div id="share-quick-add" style="display:none;margin-bottom:12px;">
+                <div style="font-size:12px;color:#71717a;margin-bottom:6px;">過去の共有メンバーからまとめて追加</div>
+                <div id="share-quick-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
             </div>
             <div class="share-list">
                 <div class="share-list-title">共有メンバー</div>
@@ -5044,16 +5049,111 @@ ${fieldDefs}
             document.getElementById("members-popup-list").innerHTML = html;
         }
 
+        let _allSharedEmails = []; // 全プロジェクトの共有メンバー（キャッシュ）
+        let _allSharedProfiles = {}; // メールアドレス→プロフィール
+
+        async function _loadAllSharedEmails() {
+            const user = firebaseAuth.currentUser;
+            if (!user) return;
+            try {
+                const snap = await db.collection("shares").where("ownerUid", "==", user.uid).get();
+                const emailSet = new Set();
+                snap.docs.forEach(d => emailSet.add(d.data().sharedWith));
+                _allSharedEmails = [...emailSet];
+                // プロフィールも取得
+                await Promise.all(_allSharedEmails.map(async email => {
+                    if (!_allSharedProfiles[email]) _allSharedProfiles[email] = await getProfileByEmail(email);
+                }));
+            } catch(e) { console.warn("[Share] Failed to load all shared emails:", e); }
+        }
+
         function openShareModal(projectId) {
             _currentShareProjectId = projectId;
             const projects = getProjects();
             const p = projects[projectId];
             document.getElementById("share-modal-title").textContent = `「${p?.name || projectId}」を共有`;
             document.getElementById("share-email").value = "";
+            document.getElementById("share-suggestions").style.display = "none";
             const roleEl = document.getElementById("share-role");
             if (roleEl) roleEl.value = "editor";
             document.getElementById("share-modal").classList.remove("hidden");
             loadShareMembers(projectId);
+            _loadAllSharedEmails().then(() => _showQuickAdd(projectId));
+        }
+
+        function _showQuickAdd(projectId) {
+            const quickArea = document.getElementById("share-quick-add");
+            const quickList = document.getElementById("share-quick-list");
+            // 現在のプロジェクトに未追加のメンバーだけ表示
+            const currentMembers = new Set();
+            const user = firebaseAuth.currentUser;
+            if (user) currentMembers.add(user.email.toLowerCase());
+            document.querySelectorAll('#share-members-list .share-item-email, #share-members-list [style*="color:#71717a"][style*="font-size:11px"]').forEach(el => {
+                const email = el.textContent.trim();
+                if (email.includes('@')) currentMembers.add(email.toLowerCase());
+            });
+
+            const candidates = _allSharedEmails.filter(e => !currentMembers.has(e.toLowerCase()));
+            if (candidates.length === 0) { quickArea.style.display = "none"; return; }
+
+            quickArea.style.display = "block";
+            quickList.innerHTML = candidates.map(email => {
+                const p = _allSharedProfiles[email] || {};
+                const name = p.customName || p.displayName || email.split('@')[0];
+                return `<button onclick="_quickAddShare('${escapeHtml(email)}', this)" style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#27272a;border:1px solid #3f3f46;border-radius:20px;color:#e4e4e7;font-size:12px;cursor:pointer;">
+                    <span style="color:#a1a1aa;">${escapeHtml(name)}</span>
+                    <span style="color:#6366f1;font-weight:700;">+</span>
+                </button>`;
+            }).join("");
+        }
+
+        async function _quickAddShare(email, btnEl) {
+            const projectId = _currentShareProjectId;
+            const user = firebaseAuth.currentUser;
+            if (!projectId || !user) return;
+            btnEl.disabled = true;
+            btnEl.style.opacity = "0.4";
+            try {
+                const existing = await db.collection("shares")
+                    .where("projectId", "==", projectId)
+                    .where("ownerUid", "==", user.uid)
+                    .where("sharedWith", "==", email)
+                    .get();
+                if (!existing.empty) { btnEl.remove(); return; }
+
+                await db.collection("shares").add({
+                    projectId, ownerUid: user.uid, ownerEmail: user.email,
+                    sharedWith: email, sharedWithUid: "", role: "editor",
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await db.collection("users").doc(user.uid).collection("projects").doc(projectId)
+                    .update({ sharedWithEmails: firebase.firestore.FieldValue.arrayUnion(email) });
+                btnEl.remove();
+                loadShareMembers(projectId);
+            } catch(e) {
+                console.error("[Share] Quick add failed:", e);
+                btnEl.disabled = false;
+                btnEl.style.opacity = "1";
+            }
+        }
+
+        function onShareEmailInput(el) {
+            const val = el.value.trim().toLowerCase();
+            const sugBox = document.getElementById("share-suggestions");
+            if (!val || _allSharedEmails.length === 0) { sugBox.style.display = "none"; return; }
+
+            const matches = _allSharedEmails.filter(e => e.toLowerCase().includes(val));
+            if (matches.length === 0) { sugBox.style.display = "none"; return; }
+
+            sugBox.style.display = "block";
+            sugBox.innerHTML = matches.slice(0, 5).map(email => {
+                const p = _allSharedProfiles[email] || {};
+                const name = p.customName || p.displayName || email.split('@')[0];
+                return `<div onclick="document.getElementById('share-email').value='${escapeHtml(email)}';document.getElementById('share-suggestions').style.display='none';" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid #27272a;" onmouseover="this.style.background='#1a1a2e'" onmouseout="this.style.background=''">
+                    <span style="color:#e4e4e7;font-size:13px;">${escapeHtml(name)}</span>
+                    <span style="color:#71717a;font-size:11px;">${escapeHtml(email)}</span>
+                </div>`;
+            }).join("");
         }
 
         function closeShareModal() {
