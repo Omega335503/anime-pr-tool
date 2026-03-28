@@ -2370,7 +2370,7 @@
                     const expUrls = p.exported_urls || {};
                     const tabNav = docTabs.map((t, i) => {
                         const expUrl = expUrls[t.key];
-                        const linkBtn = expUrl ? ` <a href="${escapeHtml(expUrl)}" target="_blank" rel="noopener" class="src-link-btn" title="Googleで開く" onclick="event.stopPropagation()">↗</a>` : '';
+                        const linkBtn = expUrl ? ` <a href="${escapeHtml(expUrl)}" target="_blank" rel="noopener" class="src-link-btn" title="Googleで開く" onclick="event.stopPropagation()"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">open_in_new</span></a>` : '';
                         return `<button class="detail-tab-btn ${i === 0 ? 'active' : ''}" onclick="switchDetailTab('${id}', '${t.key}', this)">${t.label}${linkBtn}</button>`;
                     }).join('');
                     const tabContents = docTabs.map((t, i) => {
@@ -5618,7 +5618,7 @@ ${fieldDefs}
     <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Corp.</div>
-            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/29 01:24</div>
+            <div style="font-size:10px;color:#3f3f46;margin-left:auto;">最終更新: 2026/03/29 01:31</div>
         </div>
     </footer>
 </body>
