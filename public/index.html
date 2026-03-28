@@ -1234,18 +1234,16 @@
                 const ds = shortDate(entry.date);
                 blocks.push({ text: `${ds}：${entry.title || ''}\n`, style: 'HEADING_2' });
                 // 中項目 → 箇条書き（見出し3）
-                if (entry.items) {
+                if (entry.items && entry.items.length > 0) {
                     entry.items.forEach(item => {
-                        const itemText = typeof item === 'string' ? item : item.text || '';
-                        if (itemText) {
-                            blocks.push({ text: `・${itemText}\n`, style: 'NORMAL_TEXT' });
-                            // 子項目 → 本文
-                            if (item.children) {
-                                item.children.forEach(c => {
-                                    const cText = typeof c === 'string' ? c : c.text || '';
-                                    if (cText) blocks.push({ text: `${cText}\n`, style: 'NORMAL_TEXT' });
-                                });
-                            }
+                        const itemText = typeof item === 'string' ? item : (item.text || item.label || item.title || JSON.stringify(item));
+                        blocks.push({ text: `・${itemText}\n`, style: 'NORMAL_TEXT' });
+                        const kids = item.children || item.items || [];
+                        if (kids.length > 0) {
+                            kids.forEach(c => {
+                                const cText = typeof c === 'string' ? c : (c.text || c.label || c.title || '');
+                                if (cText) blocks.push({ text: `　　${cText}\n`, style: 'NORMAL_TEXT' });
+                            });
                         }
                     });
                 }
