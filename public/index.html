@@ -3888,8 +3888,7 @@
 
             const data = existingData || {};
             let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                <span style="font-size:11px;padding:2px 8px;background:#6366f1;color:#fff;border-radius:4px;">${tmpl.label}</span>
-                <select id="tweet-template-select" onchange="changeTaskTemplate(this.value)" style="font-size:11px;padding:2px 6px;background:#27272a;border:1px solid #3f3f46;border-radius:4px;color:#a1a1aa;">
+                <select id="tweet-template-select" onchange="changeTaskTemplate(this.value)" style="font-size:11px;padding:4px 8px;background:#27272a;border:1px solid #3f3f46;border-radius:4px;color:#e4e4e7;">
                     ${Object.entries(TASK_TEMPLATES).map(([k,v]) => `<option value="${k}" ${k===templateKey?'selected':''}>${v.label}</option>`).join("")}
                 </select>
                 <button onclick="aiAutoFillFields()" id="btn-autofill" style="font-size:11px;padding:3px 10px;background:#7c3aed;border:none;color:#fff;border-radius:4px;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIで自動入力</button>
