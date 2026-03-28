@@ -950,9 +950,16 @@
                 <div class="input-section">
                     <h2 style="font-size:16px;color:#fff;margin-bottom:12px;">抽出結果プレビュー</h2>
                     <div id="pj-extract-fields"></div>
-                    <div class="form-group" style="margin-top:16px;display:flex;gap:8px;">
-                        <button class="btn-generate" onclick="confirmProject()" style="flex:1;">この内容で保存</button>
-                        <button class="btn-action" onclick="cancelProject()" style="padding:12px 24px;">キャンセル</button>
+                    <div class="form-group" style="margin-top:16px;">
+                        <div style="display:flex;gap:8px;margin-bottom:12px;">
+                            <button class="btn-generate" onclick="confirmProject()" style="flex:1;">この内容で保存</button>
+                            <button class="btn-action" onclick="cancelProject()" style="padding:12px 24px;">キャンセル</button>
+                        </div>
+                        <div style="border-top:1px solid #27272a;padding-top:12px;">
+                            <label style="font-size:12px;color:#a1a1aa;display:block;margin-bottom:6px;">再抽出の指示（カテゴリ修正、注意点など）</label>
+                            <textarea id="re-extract-notes" placeholder="例: 「公式X施策」はSNSではなくX更新に分類してください。MTGは会議のみに限定してください。" style="width:100%;height:60px;padding:8px;background:#09090b;border:1px solid #3f3f46;border-radius:6px;color:#e4e4e7;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
+                            <button onclick="reExtractWithNotes()" style="margin-top:8px;width:100%;padding:10px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">refresh</span> この指示で再抽出</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3234,6 +3241,14 @@
             document.getElementById("pj-extract-preview").style.display = "none";
         }
 
+        async function reExtractWithNotes() {
+            const notes = document.getElementById("re-extract-notes")?.value?.trim() || "";
+            // 指示をグローバルにセットしてregisterProjectを再実行
+            window._reextractInstructions = notes;
+            await registerProject();
+            window._reextractInstructions = '';
+        }
+
         // ガントチャート用グローバル: タイムラインデータを保持
         let _ganttTimeline = null;
 
@@ -5277,9 +5292,9 @@ ${fieldDefs}
         });
     </script>
 
-    <footer style="margin-top:80px;padding:24px 40px;border-top:1px solid #1a1a2e;">
-        <div style="max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:11px;color:#27272a;">&copy; 2026 RASEN Inc.</div>
+    <footer style="margin-top:80px;padding:20px 24px;border-top:1px solid #1a1a2e;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:10px;color:#3f3f46;">&copy; 2026 RASEN Inc.</div>
             <div style="font-size:10px;color:#3f3f46;">最終更新: 2026/03/28 17:46</div>
         </div>
     </footer>

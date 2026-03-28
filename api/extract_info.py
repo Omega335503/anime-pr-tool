@@ -211,12 +211,15 @@ DOC_LABELS = {
 }
 
 
-def build_individual_prompt(doc_type, content):
+def build_individual_prompt(doc_type, content, notes=""):
     """資料タイプに応じた個別プロンプトを構築"""
     template = PROMPTS.get(doc_type, "")
     if not template:
         return None
-    return template.replace("{content}", content[:10000])
+    prompt = template.replace("{content}", content[:10000])
+    if notes:
+        prompt += f"\n\n## ユーザーからの追加指示（必ず従うこと）\n{notes}"
+    return prompt
 
 
 def build_meta_prompt(documents):
@@ -256,6 +259,7 @@ class handler(BaseHTTPRequestHandler):
             return
 
         documents = data.get("documents", {})
+        notes = data.get("notes", "")
         if not any(documents.get(k, {}).get("content") for k in ("timeline", "text_master", "budget")):
             self._send_json(400, {"error": "少なくとも1つの資料が必要です"})
             return
@@ -277,7 +281,7 @@ class handler(BaseHTTPRequestHandler):
                 if not doc or not doc.get("content"):
                     continue
 
-                prompt = build_individual_prompt(doc_type, doc["content"])
+                prompt = build_individual_prompt(doc_type, doc["content"], notes)
                 if not prompt:
                     continue
 
