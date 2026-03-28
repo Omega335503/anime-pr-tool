@@ -1629,11 +1629,10 @@
                 const sharedLabel = ap.shared ? ' <span style="font-size:10px;color:#71717a;font-weight:400;">(共有)</span>' : '';
                 html += `<div class="input-section" style="margin-bottom:12px;padding:0;">`;
                 html += `<div onclick="toggleDashAccordion('${uid}')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;">`;
-                const isFirst = idx === 0;
-                html += `<div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined dash-arrow" id="dash-arrow-${uid}" style="font-size:16px;color:#71717a;transition:transform 0.2s;${isFirst ? 'transform:rotate(90deg);' : ''}">chevron_right</span><span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(ap.name)}</span>${sharedLabel}</div>`;
+                html += `<div style="display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined dash-arrow" id="dash-arrow-${uid}" style="font-size:16px;color:#71717a;transition:transform 0.2s;transform:rotate(90deg);">chevron_right</span><span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(ap.name)}</span>${sharedLabel}</div>`;
                 if (!hasData) html += `<span style="font-size:11px;color:#52525b;">データなし</span>`;
                 html += `</div>`;
-                html += `<div id="dash-body-${uid}" style="${isFirst ? '' : 'display:none;'}border-top:1px solid #27272a;padding:16px 20px;">`;
+                html += `<div id="dash-body-${uid}" style="border-top:1px solid #27272a;padding:16px 20px;">`;
                 if (hasData) {
                     html += `<div class="detail-tab-nav" style="margin-bottom:12px;">`;
                     html += `<button class="detail-tab-btn active" onclick="switchDashTab('${uid}','gantt',this)">ガントチャート</button>`;
@@ -1648,10 +1647,9 @@
             });
 
             el.innerHTML = html;
-            // 最初のプロジェクトのガントを今週にスクロール
+            // 全プロジェクトのガントを今週にスクロール
             setTimeout(() => {
-                const firstBody = document.getElementById('dash-body-dash_0');
-                if (firstBody) scrollGanttToToday(firstBody);
+                el.querySelectorAll('[id^="dash-body-"]').forEach(body => scrollGanttToToday(body));
             }, 100);
         }
 
