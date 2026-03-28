@@ -275,7 +275,7 @@
         /* ガントチャート */
         .gantt-wrapper { overflow-x: auto; overflow-y: auto; max-height: 600px; border: 1px solid #27272a; border-radius: 8px; }
         .gantt-table { border-collapse: collapse; min-width: 2000px; }
-        .gantt-table th, .gantt-table td { border: 1px solid #27272a; padding: 2px 3px; font-size: 9px; white-space: nowrap; vertical-align: top; width: 70px; min-width: 70px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+        .gantt-table th, .gantt-table td { border: 1px solid #27272a; padding: 2px 4px; font-size: 9px; white-space: nowrap; vertical-align: top; min-width: 80px; }
         .gantt-table .gantt-cat { position: sticky; left: 0; z-index: 2; background: #18181b; width: 100px; min-width: 100px; max-width: 100px; font-weight: bold; font-size: 11px; }
         .gantt-table .gantt-month { background: #1F4E79; color: #fff; text-align: center; font-weight: bold; font-size: 11px; }
         .gantt-table .gantt-week { background: #09090b; color: #a1a1aa; text-align: center; font-size: 9px; }
@@ -389,6 +389,7 @@
         .editable-table th.release-col { background: #1e1b4b; color: #818cf8; text-align: center; min-width: 80px; }
         .editable-table th.add-col-th { background: #18181b; min-width: 40px; width: 40px; padding: 0; }
         .editable-table td { padding: 0; border-bottom: 1px solid #27272a; min-width: 140px; }
+        .editable-table td:nth-child(2) { min-width: 260px; }
         .editable-table td input {
             width: 100%; min-width: 100px; background: transparent; border: none; color: #d4d4d8;
             font-size: 12px; padding: 8px 12px; outline: none; white-space: normal;
@@ -1656,11 +1657,7 @@
             arrow.style.transform = open ? '' : 'rotate(90deg)';
             // 開いた時にガントチャートを今週にスクロール
             if (!open) {
-                setTimeout(() => {
-                    scrollGanttToToday(body);
-                    const w = body.querySelector('.gantt-wrapper');
-                    if (w) initGanttScroll(w);
-                }, 50);
+                setTimeout(() => scrollGanttToToday(body), 50);
             }
         }
 
@@ -3253,27 +3250,6 @@
             const colLeft = todayTh.offsetLeft;
             const colW = todayTh.offsetWidth;
             wrapper.scrollLeft = Math.max(0, colLeft - wrapper.offsetWidth / 2 + colW / 2);
-            updateGanttYear(wrapper);
-        }
-
-        function updateGanttYear(wrapper) {
-            const yearLabel = wrapper.querySelector('.gantt-year-label');
-            if (!yearLabel) return;
-            const monthHeaders = wrapper.querySelectorAll('th.gantt-month[data-year]');
-            const scrollLeft = wrapper.scrollLeft;
-            const catWidth = wrapper.querySelector('.gantt-cat')?.offsetWidth || 100;
-            let currentYear = null;
-            monthHeaders.forEach(th => {
-                if (th.offsetLeft <= scrollLeft + catWidth + 20) {
-                    currentYear = th.dataset.year;
-                }
-            });
-            if (currentYear) yearLabel.textContent = currentYear + '年';
-        }
-
-        function initGanttScroll(wrapper) {
-            wrapper.addEventListener('scroll', () => updateGanttYear(wrapper));
-            updateGanttYear(wrapper);
         }
 
         function renderGanttChart(timeline, projectName) {
@@ -3339,9 +3315,19 @@
             let html = '<div class="gantt-layout">';
             html += `<div class="gantt-main"><div class="gantt-wrapper" id="${ganttUid}"><table class="gantt-table">`;
 
-            // 月ヘッダー（年は左固定列に動的表示）
-            html += '<tr><th class="gantt-cat" style="position:relative;"><span class="gantt-year-label" id="gantt-year-' + ganttUid + '" style="font-size:11px;color:#a1a1aa;font-weight:600;">' + months[0].year + '年</span></th>';
-            months.forEach(m => { html += `<th colspan="4" class="gantt-month" data-year="${m.year}">${m.month}月</th>`; });
+            // 月ヘッダー
+            html += '<tr><th class="gantt-cat"></th>';
+            let lastShownYear = null;
+            months.forEach(m => {
+                let label;
+                if (m.year !== lastShownYear) {
+                    label = `${m.year}年 ${m.month}月`;
+                    lastShownYear = m.year;
+                } else {
+                    label = `${m.month}月`;
+                }
+                html += `<th colspan="4" class="gantt-month">${label}</th>`;
+            });
             html += '</tr>';
 
             html += '<tr><th class="gantt-cat"></th>';
@@ -3398,10 +3384,7 @@
             // 自動スクロールは scrollGanttToToday で行う
             setTimeout(() => {
                 const wrapper = document.getElementById(ganttUid);
-                if (wrapper) {
-                    scrollGanttToToday(wrapper.closest('.input-section') || wrapper.parentElement);
-                    initGanttScroll(wrapper);
-                }
+                if (wrapper) scrollGanttToToday(wrapper.closest('.input-section') || wrapper.parentElement);
             }, 100);
 
             return html;
