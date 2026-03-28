@@ -852,7 +852,7 @@
                         <!-- 企画立案セクション -->
                         <div class="input-section" id="content-form-section" style="border-left:3px solid #22c55e;padding:14px;margin-bottom:12px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                                <h3 style="color:#e4e4e7;font-size:14px;margin:0;">プレスリリース編集</h3>
+                                <h3 style="color:#e4e4e7;font-size:14px;margin:0;display:flex;align-items:center;gap:4px;">プレスリリース編集: <input id="pr-task-name-input" type="text" value="" placeholder="施策名" style="background:transparent;border:none;border-bottom:1px solid #3f3f46;color:#e4e4e7;font-size:14px;font-weight:600;padding:0 4px;width:180px;outline:none;" oninput="autosavePR()"></h3>
                                 <button onclick="aiAutoFillPR()" style="padding:5px 12px;background:#6366f1;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:4px;">
                                     <span class="material-symbols-outlined" style="font-size:14px;">auto_awesome</span> AI自動入力
                                 </button>
@@ -884,10 +884,11 @@
                                 </div>
                                 <div class="char-counter" id="char-counter"></div>
                             </div>
-                            <div style="margin-top:10px;">
-                                <button class="btn-generate" id="btn-content-generate" onclick="generateContent()" style="width:100%;padding:8px;font-size:12px;">
+                            <div style="margin-top:10px;display:flex;gap:8px;">
+                                <button class="btn-generate" id="btn-content-generate" onclick="generateContent()" style="flex:1;padding:8px;font-size:12px;">
                                     <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">auto_awesome</span> AIでプレスリリースを生成
                                 </button>
+                                <button onclick="savePRDraft()" style="padding:8px 20px;background:#22c55e;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
                             </div>
                         </div>
                     </div>
@@ -3757,6 +3758,9 @@
                 // プレスリリースは従来フォーム
                 document.getElementById("tweet-editor-panel").style.display = "none";
                 document.getElementById("legacy-content-form").style.display = "";
+                // 施策名を設定
+                const prNameInput = document.getElementById("pr-task-name-input");
+                if (prNameInput) prNameInput.value = taskTitle || "";
                 setField("title", e.title || p.name);
                 setField("headline", taskTitle || "");
                 setField("lead_what", taskTitle || "");
@@ -3767,12 +3771,16 @@
                 setField("source_material", e.source_material || "");
                 setField("official_links", [e.official_url, e.official_x, e.hashtags].filter(Boolean).join("\n"));
                 // 保存済みPR下書きがあれば復元
-                const prDraft = p.prDrafts?.[document.getElementById("task-select").value];
-                if (prDraft?.formData) {
-                    Object.entries(prDraft.formData).forEach(([id, val]) => {
-                        const el = document.getElementById(id);
-                        if (el) el.value = val;
-                    });
+                const prTaskRef = document.getElementById("task-select").value || window._currentTaskRef || "";
+                const prDraft = p.prDrafts?.[prTaskRef];
+                if (prDraft) {
+                    if (prDraft.taskName && prNameInput) prNameInput.value = prDraft.taskName;
+                    if (prDraft.formData) {
+                        Object.entries(prDraft.formData).forEach(([id, val]) => {
+                            const el = document.getElementById(id);
+                            if (el) el.value = val;
+                        });
+                    }
                 }
             }
         }
@@ -4332,20 +4340,30 @@ ${fieldDefs}
             _autoSaveTimer = setTimeout(() => saveTweetDraft(false), 1000);
         }
 
-        function savePRDraft() {
+        let _prAutoSaveTimer = null;
+        function savePRDraft(manual) {
             const projectId = document.getElementById("project-select").value;
-            const taskVal = document.getElementById("task-select").value;
-            if (!projectId || !taskVal) { alert("プロジェクトと施策を選択してください"); return; }
+            const taskVal = document.getElementById("task-select").value || window._currentTaskRef || "";
+            if (!projectId || !taskVal) { if (manual !== false) alert("プロジェクトと施策を選択してください"); return; }
+            const taskName = document.getElementById("pr-task-name-input")?.value || "";
             const formData = {};
             document.querySelectorAll("#content-form input, #content-form textarea, #content-form select").forEach(el => {
                 if (el.id) formData[el.id] = el.value;
             });
             const p = getProjects()[projectId];
             if (!p.prDrafts) p.prDrafts = {};
-            p.prDrafts[taskVal] = { taskRef: taskVal, formData, updatedAt: new Date().toISOString() };
+            p.prDrafts[taskVal] = { taskRef: taskVal, taskName, formData, updatedAt: new Date().toISOString() };
             saveProject(projectId, p);
-            const btn = document.querySelector('#legacy-content-form [onclick*="savePRDraft"]');
-            if (btn) { btn.textContent = "✓ 保存済み"; setTimeout(() => btn.textContent = "保存", 1500); }
+            // カレンダー行を同期
+            syncCalendarRow(taskVal, { taskName, postDate: '', body: '', status: 'not_started' });
+            if (manual !== false) {
+                const btns = document.querySelectorAll('#legacy-content-form [onclick*="savePRDraft"]');
+                btns.forEach(btn => { btn.textContent = "✓ 保存済み"; setTimeout(() => btn.textContent = "保存", 1500); });
+            }
+        }
+        function autosavePR() {
+            clearTimeout(_prAutoSaveTimer);
+            _prAutoSaveTimer = setTimeout(() => savePRDraft(false), 1000);
         }
 
         function toggleProjectDetail(id) {
