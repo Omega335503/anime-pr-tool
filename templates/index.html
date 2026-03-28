@@ -1258,20 +1258,20 @@
             const urls = {};
 
             try {
-                // 新しいトークンを取得（スコープ変更対応）
-                googleAccessToken = null;
-                await ensureAccessToken(true);
-                // 進捗表示
+                // トークン取得（初回のみOAuth同意画面）
+                await ensureAccessToken();
                 const btn = event?.target;
-                if (btn) { btn.disabled = true; btn.textContent = '作成中...'; }
+                const updateProgress = (msg) => { if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner" style="width:14px;height:14px;display:inline-block;border:2px solid #fff3;border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;"></span>${msg}`; } };
 
                 // 1. 宣伝タイムライン → Google Docs（見出しスタイル付き）
                 if (strc.timeline && strc.timeline.length > 0) {
+                    updateProgress('タイムライン作成中...');
                     urls.timeline = await createStyledTimelineDoc(`${name}_宣伝タイムライン`, name, strc.timeline);
                 }
 
                 // 2. テキストマスター → Google Sheets
                 if (strc.text_master) {
+                    updateProgress('テキストマスター作成中...');
                     const tm = strc.text_master;
                     const rows = [];
                     if (tm.headers) rows.push(tm.headers);
@@ -1285,6 +1285,7 @@
 
                 // 3. 宣伝予算表 → Google Sheets
                 if (strc.budget) {
+                    updateProgress('宣伝予算表作成中...');
                     const bd = strc.budget;
                     const rows = [];
                     if (bd.headers) rows.push(bd.headers);
@@ -1298,6 +1299,7 @@
 
                 // 4. ガントチャート → Google Sheets
                 if (strc.timeline && strc.timeline.length > 0) {
+                    updateProgress('ガントチャート作成中...');
                     const ganttRows = buildGanttSheetData(strc.timeline, name);
                     urls.gantt = await createGoogleSheet(`${name}_ガントチャート`, ganttRows);
                 }
