@@ -1652,6 +1652,10 @@
             const open = body.style.display !== 'none';
             body.style.display = open ? 'none' : 'block';
             arrow.style.transform = open ? '' : 'rotate(90deg)';
+            // 開いた時にガントチャートを今週にスクロール
+            if (!open) {
+                setTimeout(() => scrollGanttToToday(body), 50);
+            }
         }
 
         function switchDashTab(uid, tab, btnEl) {
@@ -3229,6 +3233,17 @@
             }
         }
 
+        function scrollGanttToToday(container) {
+            if (!container) return;
+            const wrapper = container.querySelector('.gantt-wrapper');
+            if (!wrapper) return;
+            const todayTh = wrapper.querySelector('th.gantt-week[data-today="1"]');
+            if (!todayTh) return;
+            const colLeft = todayTh.offsetLeft;
+            const colW = todayTh.offsetWidth;
+            wrapper.scrollLeft = Math.max(0, colLeft - wrapper.offsetWidth / 2 + colW / 2);
+        }
+
         function renderGanttChart(timeline, projectName) {
             if (!timeline || !timeline.length) return '<div style="color:#71717a;text-align:center;padding:40px;">タイムラインデータがありません</div>';
             _ganttTimeline = timeline;
@@ -3307,13 +3322,13 @@
             months.forEach(m => {
                 for (let w = 1; w <= 4; w++) {
                     const isToday = colIdx === todayColIndex;
-                    html += `<th class="gantt-week" style="${isToday ? 'background:rgba(234,179,8,0.3);color:#fbbf24;font-weight:700;' : ''}">${w}W</th>`;
+                    html += `<th class="gantt-week"${isToday ? ' data-today="1" style="background:rgba(234,179,8,0.3);color:#fbbf24;font-weight:700;"' : ''}>${w}W</th>`;
                     colIdx++;
                 }
             });
             html += '</tr>';
 
-            const todayBg = 'background:rgba(234,179,8,0.08);';
+            const todayBg = 'background:rgba(234,179,8,0.08);border-left:1px solid rgba(234,179,8,0.3);border-right:1px solid rgba(234,179,8,0.3);';
             CATEGORIES.forEach(catName => {
                 const events = catEvents[catName];
                 const eventKeys = Object.keys(events);
@@ -3334,7 +3349,7 @@
                             const items = events[key] || [];
                             const isTodayCol = ci === todayColIndex;
                             if (row < items.length) {
-                                html += `<td class="gantt-event" style="${isTodayCol ? todayBg : ''}" onclick="showGanttDetail(${items[row].idx}, this)" title="${items[row].text}">${items[row].text}</td>`;
+                                html += `<td class="gantt-event" style="${isTodayCol ? todayBg : ''}" onclick="showGanttDetail(${items[row].idx}, this)" title="${escapeHtml(items[row].text)}">${escapeHtml(items[row].text)}</td>`;
                             } else { html += `<td${isTodayCol ? ` style="${todayBg}"` : ''}></td>`; }
                             ci++;
                         }
@@ -3352,19 +3367,11 @@
 
             html += '</div>';
 
-            // 自動スクロール: 現在の週が中央に来るようにする
-            if (todayColIndex >= 0) {
-                setTimeout(() => {
-                    const el = document.getElementById(ganttUid);
-                    if (!el) return;
-                    const cols = el.querySelectorAll('th.gantt-week');
-                    if (cols[todayColIndex]) {
-                        const colLeft = cols[todayColIndex].offsetLeft;
-                        const colW = cols[todayColIndex].offsetWidth;
-                        el.scrollLeft = Math.max(0, colLeft - el.offsetWidth / 2 + colW / 2);
-                    }
-                }, 100);
-            }
+            // 自動スクロールは scrollGanttToToday で行う
+            setTimeout(() => {
+                const wrapper = document.getElementById(ganttUid);
+                if (wrapper) scrollGanttToToday(wrapper.closest('.input-section') || wrapper.parentElement);
+            }, 100);
 
             return html;
         }
