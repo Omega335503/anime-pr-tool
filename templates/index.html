@@ -1157,6 +1157,98 @@
             return `https://docs.google.com/document/d/${doc.documentId}/edit`;
         }
 
+        async function createStyledTimelineDoc(title, projectName, timeline) {
+            const token = await ensureAccessToken();
+            console.log('[Export] Creating styled doc:', title);
+            // 1. ドキュメント作成
+            const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            const docText = await createRes.text();
+            if (!createRes.ok) throw new Error(`Doc作成失敗 (${createRes.status}): ${docText}`);
+            const doc = JSON.parse(docText);
+            if (!doc.documentId) throw new Error('Doc作成: documentIdが取得できません');
+
+            // 2. テキスト挿入（末尾から先頭へ逆順で挿入）
+            // 先にすべてのテキストブロックを構築
+            const blocks = [];
+            // タイトル
+            blocks.push({ text: `${projectName} 宣伝タイムライン\n`, style: 'TITLE' });
+
+            // カテゴリでグループ化
+            const catGroups = {};
+            timeline.forEach(entry => {
+                const cat = entry.category || 'その他';
+                if (!catGroups[cat]) catGroups[cat] = [];
+                catGroups[cat].push(entry);
+            });
+
+            Object.entries(catGroups).forEach(([cat, entries]) => {
+                // 見出し1: カテゴリ
+                blocks.push({ text: `${cat}\n`, style: 'HEADING_1' });
+                entries.forEach(entry => {
+                    // 見出し2: 日付 + タイトル
+                    const dateStr = entry.date || '';
+                    blocks.push({ text: `${dateStr}　${entry.title || ''}\n`, style: 'HEADING_2' });
+                    // 中項目
+                    if (entry.items) {
+                        entry.items.forEach(item => {
+                            const itemText = typeof item === 'string' ? item : item.text || '';
+                            if (itemText) {
+                                blocks.push({ text: `${itemText}\n`, style: 'HEADING_3' });
+                                // 子項目
+                                if (item.children) {
+                                    item.children.forEach(c => {
+                                        const cText = typeof c === 'string' ? c : c.text || '';
+                                        if (cText) blocks.push({ text: `• ${cText}\n`, style: 'NORMAL_TEXT' });
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+
+            // 3. batchUpdateリクエスト構築（insertTextは末尾から逆順）
+            const requests = [];
+            let idx = 1; // ドキュメントの先頭index
+
+            // まずすべてのテキストを挿入
+            const fullText = blocks.map(b => b.text).join('');
+            requests.push({ insertText: { location: { index: 1 }, text: fullText } });
+
+            // 次にスタイルを適用
+            let pos = 1;
+            blocks.forEach(block => {
+                const endPos = pos + block.text.length;
+                if (block.style !== 'NORMAL_TEXT') {
+                    requests.push({
+                        updateParagraphStyle: {
+                            range: { startIndex: pos, endIndex: endPos },
+                            paragraphStyle: { namedStyleType: block.style },
+                            fields: 'namedStyleType'
+                        }
+                    });
+                }
+                pos = endPos;
+            });
+
+            // 4. batchUpdate実行
+            const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requests })
+            });
+            if (!updateRes.ok) {
+                const errText = await updateRes.text();
+                console.warn('[Export] Doc style update failed:', errText);
+            }
+
+            return `https://docs.google.com/document/d/${doc.documentId}/edit`;
+        }
+
         // プロジェクトデータから整形済みGoogle Docs/Sheetsを作成
         async function exportToGoogle(projectId) {
             const p = getProjects()[projectId];
@@ -1173,27 +1265,9 @@
                 const btn = event?.target;
                 if (btn) { btn.disabled = true; btn.textContent = '作成中...'; }
 
-                // 1. 宣伝タイムライン → Google Docs
+                // 1. 宣伝タイムライン → Google Docs（見出しスタイル付き）
                 if (strc.timeline && strc.timeline.length > 0) {
-                    let text = `【${name}】宣伝タイムライン\n\n`;
-                    strc.timeline.forEach(entry => {
-                        text += `━━━━━━━━━━━━━━━━━━\n`;
-                        text += `${entry.date || ''}　[${entry.category || ''}]　${entry.title || ''}\n`;
-                        if (entry.items) {
-                            entry.items.forEach(item => {
-                                const itemText = typeof item === 'string' ? item : item.text || '';
-                                text += `  ・${itemText}\n`;
-                                if (item.children) {
-                                    item.children.forEach(c => {
-                                        const cText = typeof c === 'string' ? c : c.text || '';
-                                        text += `    └ ${cText}\n`;
-                                    });
-                                }
-                            });
-                        }
-                        text += '\n';
-                    });
-                    urls.timeline = await createGoogleDoc(`${name}_宣伝タイムライン`, text);
+                    urls.timeline = await createStyledTimelineDoc(`${name}_宣伝タイムライン`, name, strc.timeline);
                 }
 
                 // 2. テキストマスター → Google Sheets
