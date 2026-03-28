@@ -4286,6 +4286,42 @@ ${fieldDefs}
                 const btn = document.querySelector('#tweet-editor-panel [onclick*="saveTweetDraft"]');
                 if (btn) { btn.textContent = "✓ 保存済み"; setTimeout(() => btn.textContent = "保存", 1500); }
             }
+            // カレンダーの該当行を同期更新
+            syncCalendarRow(taskVal, draft);
+        }
+
+        function syncCalendarRow(taskRef, draft) {
+            const rows = document.querySelectorAll(`tr[data-taskref="${taskRef}"]`);
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    // 日付
+                    if (draft.postDate) {
+                        cells[0].textContent = draft.postDate;
+                        cells[0].style.color = '#e4e4e7';
+                    }
+                    // 施策名
+                    if (draft.taskName) {
+                        cells[1].textContent = draft.taskName;
+                        cells[1].style.color = '#e4e4e7';
+                    }
+                    // 内容プレビュー
+                    const body = draft.body || '';
+                    cells[2].textContent = body ? body.substring(0, 20) + (body.length > 20 ? '...' : '') : '未作成';
+                    cells[2].style.color = body ? '#e4e4e7' : '#52525b';
+                    // 状態
+                    const statusMap = { draft: '下書き', pending: '承認待ち', approved: '承認済み', posted: '投稿済み' };
+                    const statusEl = cells[3].querySelector('span') || cells[3];
+                    const statusText = statusMap[draft.status] || '未着手';
+                    if (cells[3].querySelector('span')) {
+                        cells[3].querySelector('span').textContent = statusText;
+                    } else {
+                        cells[3].textContent = statusText;
+                    }
+                }
+                // ハイライト維持
+                row.classList.add('cal-row-active');
+            });
         }
 
         function autoSaveTweet() {
