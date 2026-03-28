@@ -1091,7 +1091,7 @@
                         resolve(resp.access_token);
                     } else { reject("No token"); }
                 };
-                tokenClient.requestAccessToken({ prompt: 'consent' });
+                tokenClient.requestAccessToken({ prompt: '' });
             });
         }
 
