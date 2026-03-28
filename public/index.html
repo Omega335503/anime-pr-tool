@@ -1066,7 +1066,7 @@
             if (typeof google === 'undefined' || !google.accounts?.oauth2) return;
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: GOOGLE_CLIENT_ID,
-                scope: 'https://www.googleapis.com/auth/drive.file',
+                scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/spreadsheets',
                 callback: (resp) => {
                     if (resp.access_token) {
                         googleAccessToken = resp.access_token;
@@ -1079,9 +1079,9 @@
         setTimeout(initTokenClient, 2000);
 
         // アクセストークンを取得（なければOAuth同意画面を表示）
-        function ensureAccessToken() {
+        function ensureAccessToken(forceNew) {
             return new Promise((resolve, reject) => {
-                if (googleAccessToken) { resolve(googleAccessToken); return; }
+                if (googleAccessToken && !forceNew) { resolve(googleAccessToken); return; }
                 if (!tokenClient) { initTokenClient(); }
                 if (!tokenClient) { reject("OAuth not ready"); return; }
                 const origCallback = tokenClient.callback;
@@ -1159,6 +1159,9 @@
             const urls = {};
 
             try {
+                // 新しいトークンを取得（スコープ変更対応）
+                googleAccessToken = null;
+                await ensureAccessToken(true);
                 // 進捗表示
                 const btn = event?.target;
                 if (btn) { btn.disabled = true; btn.textContent = '作成中...'; }
