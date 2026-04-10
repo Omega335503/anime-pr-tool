@@ -3479,7 +3479,7 @@
         // ===== ツイートカレンダー =====
         function renderTweetCalendar(projectId, project) {
             const drafts = project.tweetDrafts || {};
-            const tl = project.structured?.timeline || [];
+            const prDrafts = project.prDrafts || {};
             const statusMap = {
                 not_started: { label: "未着手", bg: "#3f3f46", color: "#71717a" },
                 draft: { label: "下書き", bg: "#27272a", color: "#a1a1aa" },
@@ -3487,61 +3487,41 @@
                 approved: { label: "承認済み", bg: "#14532d", color: "#4ade80" },
                 posted: { label: "投稿済み", bg: "#1e3a5f", color: "#60a5fa" }
             };
-            const catColors = {}; // 統一色: #6366f1（紫）をデフォルトで使用
 
-            // 全施策を展開（X更新/SNS → ツイート、プレスリリース → PR）
-            const TWEET_CATS = ["X更新"];
-            const PR_CATS = ["プレスリリース"];
+            // draftsのみからタスク一覧を構築（タイムラインとの連動を廃止）
             const allTasks = [];
-            tl.forEach((entry, ei) => {
-                if (!EXPAND_CATEGORIES.includes(entry.category)) return;
-                const type = PR_CATS.includes(entry.category) ? "pr" : "tweet";
-                if (entry.items?.length > 0) {
-                    entry.items.forEach((item, ii) => {
-                        const txt = typeof item === 'string' ? item : (item.text || item.label || '');
-                        if (!txt) return;
-                        allTasks.push({ key: `${ei}:${ii}`, date: entry.date || "", category: entry.category, taskName: txt, type });
-                    });
-                } else {
-                    allTasks.push({ key: `${ei}:`, date: entry.date || "", category: entry.category, taskName: entry.title || "(無題)", type });
-                }
-            });
-            // 手動追加分
             Object.keys(drafts).forEach(key => {
-                if (!allTasks.find(t => t.key === key)) {
-                    const d = drafts[key];
-                    allTasks.push({ key, date: d.postDate || "", category: "その他", taskName: d.taskName || "手動追加", type: "tweet" });
-                }
+                const d = drafts[key];
+                allTasks.push({ key, date: d.postDate || "", taskName: d.taskName || "(無題)", type: "tweet" });
             });
-            // PR下書きの手動追加分
-            const prDrafts = project.prDrafts || {};
             Object.keys(prDrafts).forEach(key => {
-                if (!allTasks.find(t => t.key === key)) {
-                    const d = prDrafts[key];
-                    allTasks.push({ key, date: "", category: "プレスリリース", taskName: d.taskName || "手動追加", type: "pr" });
-                }
+                const d = prDrafts[key];
+                allTasks.push({ key, date: d.postDate || d.formData?.postDate || "", taskName: d.taskName || "(無題)", type: "pr" });
             });
             allTasks.sort((a, b) => {
-                const da = drafts[a.key]?.postDate || a.date || "9999";
-                const db = drafts[b.key]?.postDate || b.date || "9999";
-                return (da + (drafts[a.key]?.postTime || "99:99")).localeCompare(db + (drafts[b.key]?.postTime || "99:99"));
+                const da = (a.date || "9999") + (drafts[a.key]?.postTime || prDrafts[a.key]?.postTime || "99:99");
+                const db = (b.date || "9999") + (drafts[b.key]?.postTime || prDrafts[b.key]?.postTime || "99:99");
+                return da.localeCompare(db);
             });
 
             function buildTable(tasks, label) {
                 const total = tasks.length;
-                const created = tasks.filter(t => drafts[t.key]).length;
-                const progress = total > 0 ? Math.round((created / total) * 100) : 0;
-                const counts = { not_started: 0, draft: 0, pending: 0, approved: 0, posted: 0 };
-                tasks.forEach(t => { const s = drafts[t.key]?.status || (drafts[t.key] ? "draft" : "not_started"); counts[s]++; });
+                const counts = { draft: 0, pending: 0, approved: 0, posted: 0 };
+                tasks.forEach(t => {
+                    const d = drafts[t.key] || prDrafts[t.key];
+                    const s = d?.status || "draft";
+                    if (counts[s] !== undefined) counts[s]++;
+                });
+                const posted = counts.posted;
+                const progress = total > 0 ? Math.round((posted / total) * 100) : 0;
 
                 const rows = tasks.map(task => {
                     const d = drafts[task.key];
                     const pd = prDrafts[task.key];
-                    const hasDraft = !!(d || pd);
-                    const status = d ? (d.status || "draft") : "not_started";
+                    const draft = d || pd;
+                    const status = draft?.status || "draft";
                     const st = statusMap[status];
-                    // 施策名: 下書きの名前 > タイムラインの名前
-                    const displayName = d?.taskName || pd?.taskName || task.taskName;
+                    const displayName = draft?.taskName || task.taskName;
                     // 内容プレビュー: body > taskFieldsの値 > PRフォームの値
                     const body = d?.body || "";
                     let preview = "";
@@ -3554,12 +3534,11 @@
                         const firstVal = Object.values(pd.formData).find(v => v) || "";
                         preview = escapeHtml(String(firstVal).replace(/\n/g, " ")).slice(0, 25);
                     }
-                    const date = d?.postDate || task.date || "未定";
-                    const rowBg = !hasDraft ? "rgba(63,63,70,0.15)" : "";
-                    return `<tr data-taskref="${escapeHtml(task.key)}" style="border-bottom:1px solid #27272a;cursor:pointer;background:${rowBg};" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
-                        <td style="padding:5px 6px;white-space:nowrap;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#52525b'};">${escapeHtml(date)}</td>
-                        <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#e4e4e7' : '#71717a'};max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(displayName)}</td>
-                        <td style="padding:5px 6px;font-size:11px;color:${hasDraft ? '#a1a1aa' : '#3f3f46'};max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
+                    const date = draft?.postDate || task.date || "未定";
+                    return `<tr data-taskref="${escapeHtml(task.key)}" style="border-bottom:1px solid #27272a;cursor:pointer;" onclick="openTweetFromCalendar('${projectId}','${escapeHtml(task.key)}')" title="クリックで編集">
+                        <td style="padding:5px 6px;white-space:nowrap;font-size:11px;color:#e4e4e7;">${escapeHtml(date)}</td>
+                        <td style="padding:5px 6px;font-size:11px;color:#e4e4e7;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(displayName)}</td>
+                        <td style="padding:5px 6px;font-size:11px;color:#a1a1aa;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<span style="color:#52525b;font-style:italic;">未作成</span>'}</td>
                         <td style="padding:5px 6px;"><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:${st.bg};color:${st.color};">${st.label}</span></td>
                     </tr>`;
                 }).join("");
@@ -3591,12 +3570,18 @@
             const tweetTasks = allTasks.filter(t => t.type === "tweet");
             const prTasks = allTasks.filter(t => t.type === "pr");
 
+            const addBtnStyle = `display:inline-flex;align-items:center;gap:4px;padding:5px 12px;font-size:11px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-top:8px;`;
+
             return `<div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #27272a;">
                 <button class="detail-tab-btn active" onclick="switchCalTab('tweet',this)" style="padding:8px 20px;font-size:13px;">ツイート (${tweetTasks.length})</button>
                 <button class="detail-tab-btn" onclick="switchCalTab('pr',this)" style="padding:8px 20px;font-size:13px;">プレスリリース (${prTasks.length})</button>
             </div>
-            <div data-cal-panel="tweet">${buildTable(tweetTasks, "ツイート")}</div>
-            <div data-cal-panel="pr" style="display:none;">${buildTable(prTasks, "プレスリリース")}</div>`;
+            <div data-cal-panel="tweet">${buildTable(tweetTasks, "ツイート")}
+                <button style="${addBtnStyle}" onclick="addNewCalendarCard('${projectId}','tweet')"><span class="material-icons" style="font-size:14px;">add</span>新規ツイートを追加</button>
+            </div>
+            <div data-cal-panel="pr" style="display:none;">${buildTable(prTasks, "プレスリリース")}
+                <button style="${addBtnStyle}" onclick="addNewCalendarCard('${projectId}','pr')"><span class="material-icons" style="font-size:14px;">add</span>新規プレスリリースを追加</button>
+            </div>`;
         }
 
         function switchCalTab(tab, btn) {
@@ -3616,60 +3601,96 @@
             document.getElementById("legacy-content-form").style.display = "none";
         }
 
+        function addNewCalendarCard(projectId, type) {
+            // ユニークキーを生成（manual_タイムスタンプ）
+            const key = `manual_${Date.now()}`;
+            const projects = getProjects();
+            const p = projects[projectId];
+            if (!p) return;
+            const e = p.extracted || {};
+
+            if (type === 'pr') {
+                // PR下書きを初期化
+                if (!p.prDrafts) p.prDrafts = {};
+                p.prDrafts[key] = {
+                    taskRef: key,
+                    taskName: '',
+                    formData: {},
+                    updatedAt: new Date().toISOString()
+                };
+                saveProject(projectId, p);
+                window._currentCalTab = 'pr';
+                openTweetFromCalendar(projectId, key);
+            } else {
+                // ツイート下書きを初期化
+                if (!p.tweetDrafts) p.tweetDrafts = {};
+                p.tweetDrafts[key] = {
+                    taskRef: key,
+                    taskName: '',
+                    postDate: '',
+                    postTime: '',
+                    memo: '',
+                    body: '',
+                    hashtags: e.hashtags || '',
+                    url: e.official_url || '',
+                    status: 'draft',
+                    taskFields: {},
+                    images: [],
+                    updatedAt: new Date().toISOString()
+                };
+                saveProject(projectId, p);
+                window._currentCalTab = 'tweet';
+                openTweetFromCalendar(projectId, key);
+            }
+            // カレンダー再レンダリング
+            const calEl = document.getElementById('calendar-area') || document.querySelector('[data-cal-panel]')?.parentElement;
+            if (calEl) {
+                const calPanels = calEl.querySelectorAll('[data-cal-panel]');
+                if (calPanels.length > 0) {
+                    const wrapper = calPanels[0].parentElement;
+                    const calHtml = renderTweetCalendar(projectId, getProjects()[projectId]);
+                    // タブ部分とパネル部分を再レンダリング
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = calHtml;
+                    // 現在のタブを維持
+                    wrapper.querySelectorAll('[data-cal-panel]').forEach(el => el.remove());
+                    wrapper.querySelector('.detail-tab-btn')?.parentElement?.remove();
+                    wrapper.insertAdjacentHTML('afterbegin', calHtml);
+                    // アクティブタブを再適用
+                    const activeTab = type === 'pr' ? 'pr' : 'tweet';
+                    wrapper.querySelectorAll('[data-cal-panel]').forEach(el => {
+                        el.style.display = el.dataset.calPanel === activeTab ? '' : 'none';
+                    });
+                    wrapper.querySelectorAll('.detail-tab-btn').forEach(b => {
+                        b.classList.toggle('active', b.textContent.includes(activeTab === 'pr' ? 'プレスリリース' : 'ツイート'));
+                    });
+                }
+            }
+        }
+
         function openTweetFromCalendar(projectId, taskRef) {
-            // コンテンツタブに切替（カレンダーは再レンダリングしない）
+            // コンテンツタブに切替
             const currentTab = document.querySelector('.tab-btn.active')?.dataset?.tab;
             if (currentTab !== 'content') {
                 switchTab('content');
-                // プロジェクトが未選択の場合のみセット＆カレンダー描画
                 if (document.getElementById("project-select").value !== projectId) {
                     document.getElementById("project-select").value = projectId;
                     applyProject();
                 }
             }
-            // task-selectを更新してタスクを選択
+            // taskRefをセット
+            window._currentTaskRef = taskRef;
             updateTaskSelect();
             const taskSelect = document.getElementById("task-select");
-            let found = false;
             for (const opt of taskSelect.options) {
-                if (opt.value === taskRef) {
-                    taskSelect.value = taskRef;
-                    found = true;
-                    break;
-                }
+                if (opt.value === taskRef) { taskSelect.value = taskRef; break; }
             }
-            // 現在編集中のtaskRefを保持（task-selectにない場合も保存に使う）
-            window._currentTaskRef = taskRef;
-            if (!found) taskSelect.value = ""; // task-selectにない場合はクリア（_currentTaskRefが使われる）
             // カレンダー行ハイライト
             document.querySelectorAll('.cal-row-active').forEach(r => r.classList.remove('cal-row-active'));
             document.querySelectorAll(`tr[data-taskref="${taskRef}"]`).forEach(r => r.classList.add('cal-row-active'));
-            if (found) {
-                // applyTask内でエディタの表示・フィールド設定を行う
-                applyTask();
-            } else {
-                // 手動追加など、task-selectにない場合はツイートエディタを直接開く
-                const calTab = window._currentCalTab || 'tweet';
-                const p = getProjects()[projectId];
-                const e = p?.extracted || {};
-                const draft = p?.tweetDrafts?.[taskRef];
-                if (calTab === 'pr') {
-                    switchContentType('press_release', true);
-                } else {
-                    showTweetEditor({
-                        projectName: e.title || p?.name || '',
-                        taskTitle: draft?.taskName || '手動追加',
-                        details: [],
-                        date: draft?.postDate || '',
-                        category: 'X更新',
-                        hashtags: e.hashtags || '',
-                        url: e.official_url || '',
-                        broadcastInfo: e.broadcast_info || '',
-                        extracted: e
-                    });
-                    document.getElementById("tweet-editor-placeholder").style.display = "none";
-                }
-            }
+            // draftsから直接エディタを開く
+            applyTask();
+            document.getElementById("tweet-editor-placeholder").style.display = "none";
         }
 
         function scrollGanttToToday(container) {
@@ -4075,130 +4096,77 @@
             taskSelect.innerHTML = '<option value="">-- 施策を選択 --</option>';
             if (!projectId) { taskGroup.style.display = "none"; return; }
             const p = getProjects()[projectId];
-            appLog("debug", "TaskSelect", "projectId: " + projectId + " keys: " + (p ? Object.keys(p) : "null") + " timeline: " + (p?.structured?.timeline?.length || 0));
-            if (!p?.structured?.timeline) { taskGroup.style.display = "none"; return; }
 
-            const tl = p.structured.timeline;
-            // デバッグ: カテゴリ分布を表示
-            const catCount = {};
-            tl.forEach(e => { catCount[e.category] = (catCount[e.category]||0) + 1; });
-            appLog("debug", "TaskSelect", "categories: " + JSON.stringify(catCount));
-            tl.forEach((entry, ei) => {
-                if (!EXPAND_CATEGORIES.includes(entry.category)) return;
-                const date = entry.date || "日付未定";
-                const cat = entry.category;
-
-                if (entry.items?.length > 0) {
-                    // 中項目がある → 各中項目を独立施策として展開
-                    entry.items.forEach((item, ii) => {
-                        const txt = typeof item === 'string' ? item : (item.text || item.label || '');
-                        if (!txt) return;
-                        const opt = document.createElement("option");
-                        opt.value = `${ei}:${ii}`;
-                        opt.textContent = `[${date}] ${cat} ▸ ${txt}`;
-                        taskSelect.appendChild(opt);
-                    });
-                } else {
-                    // 中項目なし → エントリ自体を施策として表示
-                    const opt = document.createElement("option");
-                    opt.value = `${ei}:`;
-                    opt.textContent = `[${date}] ${cat}: ${entry.title || "(無題)"}`;
-                    taskSelect.appendChild(opt);
-                }
+            // draftsからオプションを生成（タイムライン連動を廃止）
+            const td = p?.tweetDrafts || {};
+            const pd = p?.prDrafts || {};
+            Object.keys(td).forEach(key => {
+                const d = td[key];
+                const opt = document.createElement("option");
+                opt.value = key;
+                opt.textContent = `[${d.postDate || "未定"}] ${d.taskName || "(無題)"}`;
+                taskSelect.appendChild(opt);
             });
-            appLog("debug", "TaskSelect", "options count: " + taskSelect.options.length);
+            Object.keys(pd).forEach(key => {
+                const d = pd[key];
+                const opt = document.createElement("option");
+                opt.value = key;
+                opt.textContent = `[PR] ${d.taskName || "(無題)"}`;
+                taskSelect.appendChild(opt);
+            });
             // カレンダーから選択するのでセレクトボックスは常に非表示
             taskGroup.style.display = "none";
         }
 
         function applyTask() {
             const projectId = document.getElementById("project-select").value;
-            const val = document.getElementById("task-select").value;
+            const val = document.getElementById("task-select").value || window._currentTaskRef;
             if (!projectId || !val) return;
             window._currentTaskRef = val;
 
-            const [eiStr, iiStr] = val.split(":");
-            const ei = parseInt(eiStr);
             const p = getProjects()[projectId];
-            if (!p?.structured?.timeline) return;
-            const entry = p.structured.timeline[ei];
-            if (!entry) return;
-
+            if (!p) return;
             const e = p.extracted || {};
 
-            // カテゴリに応じてコンテンツタイプを自動切り替え（エディタも表示）
-            if (entry.category === "プレスリリース") {
+            // draftsから直接データ取得（タイムライン連動を廃止）
+            const tweetDraft = p.tweetDrafts?.[val];
+            const prDraft = p.prDrafts?.[val];
+            const isPR = !!prDraft && !tweetDraft;
+
+            if (isPR) {
                 switchContentType("press_release", true);
-            } else {
-                switchContentType("tweet", true);
-            }
-
-            let taskTitle = entry.title;
-            let details = [];
-
-            if (iiStr !== "") {
-                // 特定の中項目が選択された
-                const ii = parseInt(iiStr);
-                const item = entry.items?.[ii];
-                if (item) {
-                    taskTitle = typeof item === 'string' ? item : (item.text || item.label || entry.title);
-                    if (item.children) {
-                        item.children.forEach(c => {
-                            details.push(typeof c === 'string' ? c : c.text || '');
-                        });
-                    }
-                }
-            } else {
-                // エントリ全体
-                if (entry.items) {
-                    entry.items.forEach(it => {
-                        const txt = typeof it === 'string' ? it : (it.text || it.label || '');
-                        if (txt) details.push(txt);
-                    });
-                }
-            }
-
-            if (currentContentType === "tweet") {
-                // 新しいツイートエディターパネルを表示
-                showTweetEditor({
-                    projectName: e.title || p.name,
-                    taskTitle,
-                    details,
-                    date: entry.date,
-                    category: entry.category,
-                    hashtags: e.hashtags || "",
-                    url: e.official_url || "",
-                    broadcastInfo: e.broadcast_info || "",
-                    extracted: e
-                });
-            } else {
-                // プレスリリースは従来フォーム
                 document.getElementById("tweet-editor-panel").style.display = "none";
                 document.getElementById("legacy-content-form").style.display = "";
-                // 施策名を設定
                 const prNameInput = document.getElementById("pr-task-name-input");
-                if (prNameInput) prNameInput.value = taskTitle || "";
+                if (prNameInput) prNameInput.value = prDraft.taskName || "";
                 setField("title", e.title || p.name);
-                setField("headline", taskTitle || "");
-                setField("lead_what", taskTitle || "");
-                if (details.length > 0) setField("lead_detail", details.slice(0, 5).join("\n"));
+                setField("headline", prDraft.taskName || "");
+                setField("lead_what", prDraft.taskName || "");
                 if (e.broadcast_info) setField("lead_when", e.broadcast_info);
                 setField("staff_cast", [e.staff, e.cast].filter(Boolean).join("\n"));
                 setField("synopsis", e.synopsis || "");
                 setField("source_material", e.source_material || "");
                 setField("official_links", [e.official_url, e.official_x, e.hashtags].filter(Boolean).join("\n"));
-                // 保存済みPR下書きがあれば復元
-                const prTaskRef = document.getElementById("task-select").value || window._currentTaskRef || "";
-                const prDraft = p.prDrafts?.[prTaskRef];
-                if (prDraft) {
-                    if (prDraft.taskName && prNameInput) prNameInput.value = prDraft.taskName;
-                    if (prDraft.formData) {
-                        Object.entries(prDraft.formData).forEach(([id, val]) => {
-                            const el = document.getElementById(id);
-                            if (el) el.value = val;
-                        });
-                    }
+                // 保存済みPR下書きを復元
+                if (prDraft.formData) {
+                    Object.entries(prDraft.formData).forEach(([id, v]) => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = v;
+                    });
                 }
+            } else {
+                switchContentType("tweet", true);
+                showTweetEditor({
+                    projectName: e.title || p.name,
+                    taskTitle: tweetDraft?.taskName || "",
+                    details: [],
+                    date: tweetDraft?.postDate || "",
+                    category: "X更新",
+                    hashtags: e.hashtags || "",
+                    url: e.official_url || "",
+                    broadcastInfo: e.broadcast_info || "",
+                    extracted: e
+                });
             }
         }
 
