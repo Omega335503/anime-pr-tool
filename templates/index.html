@@ -3602,70 +3602,57 @@
         }
 
         function addNewCalendarCard(projectId, type) {
-            // ユニークキーを生成（manual_タイムスタンプ）
+            // ドラフトはまだ作らない。エディタだけ開いて、保存時に追加する
             const key = `manual_${Date.now()}`;
-            const projects = getProjects();
-            const p = projects[projectId];
-            if (!p) return;
-            const e = p.extracted || {};
+            window._currentTaskRef = key;
+            window._currentCalTab = type === 'pr' ? 'pr' : 'tweet';
+            window._isNewCalendarEntry = true; // 新規追加フラグ
 
-            if (type === 'pr') {
-                // PR下書きを初期化
-                if (!p.prDrafts) p.prDrafts = {};
-                p.prDrafts[key] = {
-                    taskRef: key,
-                    taskName: '',
-                    formData: {},
-                    updatedAt: new Date().toISOString()
-                };
-                saveProject(projectId, p);
-                window._currentCalTab = 'pr';
-                openTweetFromCalendar(projectId, key);
-            } else {
-                // ツイート下書きを初期化
-                if (!p.tweetDrafts) p.tweetDrafts = {};
-                p.tweetDrafts[key] = {
-                    taskRef: key,
-                    taskName: '',
-                    postDate: '',
-                    postTime: '',
-                    memo: '',
-                    body: '',
-                    hashtags: e.hashtags || '',
-                    url: e.official_url || '',
-                    status: 'draft',
-                    taskFields: {},
-                    images: [],
-                    updatedAt: new Date().toISOString()
-                };
-                saveProject(projectId, p);
-                window._currentCalTab = 'tweet';
-                openTweetFromCalendar(projectId, key);
-            }
-            // カレンダー再レンダリング
-            const calEl = document.getElementById('calendar-area') || document.querySelector('[data-cal-panel]')?.parentElement;
-            if (calEl) {
-                const calPanels = calEl.querySelectorAll('[data-cal-panel]');
-                if (calPanels.length > 0) {
-                    const wrapper = calPanels[0].parentElement;
-                    const calHtml = renderTweetCalendar(projectId, getProjects()[projectId]);
-                    // タブ部分とパネル部分を再レンダリング
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = calHtml;
-                    // 現在のタブを維持
-                    wrapper.querySelectorAll('[data-cal-panel]').forEach(el => el.remove());
-                    wrapper.querySelector('.detail-tab-btn')?.parentElement?.remove();
-                    wrapper.insertAdjacentHTML('afterbegin', calHtml);
-                    // アクティブタブを再適用
-                    const activeTab = type === 'pr' ? 'pr' : 'tweet';
-                    wrapper.querySelectorAll('[data-cal-panel]').forEach(el => {
-                        el.style.display = el.dataset.calPanel === activeTab ? '' : 'none';
-                    });
-                    wrapper.querySelectorAll('.detail-tab-btn').forEach(b => {
-                        b.classList.toggle('active', b.textContent.includes(activeTab === 'pr' ? 'プレスリリース' : 'ツイート'));
-                    });
+            const p = getProjects()[projectId];
+            const e = p?.extracted || {};
+
+            // コンテンツタブに切替
+            const currentTab = document.querySelector('.tab-btn.active')?.dataset?.tab;
+            if (currentTab !== 'content') {
+                switchTab('content');
+                if (document.getElementById("project-select").value !== projectId) {
+                    document.getElementById("project-select").value = projectId;
+                    applyProject();
                 }
             }
+
+            if (type === 'pr') {
+                switchContentType('press_release', true);
+                document.getElementById("tweet-editor-panel").style.display = "none";
+                document.getElementById("legacy-content-form").style.display = "";
+                const prNameInput = document.getElementById("pr-task-name-input");
+                if (prNameInput) prNameInput.value = "";
+                // フォームをクリア
+                document.querySelectorAll("#content-form input, #content-form textarea").forEach(el => { el.value = ""; });
+                setField("title", e.title || p?.name || "");
+            } else {
+                switchContentType('tweet', true);
+                showTweetEditor({
+                    projectName: e.title || p?.name || '',
+                    taskTitle: '',
+                    details: [],
+                    date: '',
+                    category: 'X更新',
+                    hashtags: e.hashtags || '',
+                    url: e.official_url || '',
+                    broadcastInfo: e.broadcast_info || '',
+                    extracted: e
+                });
+                // フィールドをクリア
+                document.getElementById("tweet-task-name-input").value = "";
+                document.getElementById("tweet-post-date").value = "";
+                document.getElementById("tweet-post-time").value = "12:00";
+                document.getElementById("tweet-body").value = "";
+                document.getElementById("tweet-memo").value = "";
+                document.getElementById("tweet-status-select").value = "draft";
+                updateTweetCharCount();
+            }
+            document.getElementById("tweet-editor-placeholder").style.display = "none";
         }
 
         function openTweetFromCalendar(projectId, taskRef) {
@@ -4658,12 +4645,21 @@ ${fieldDefs}
             const taskVal = document.getElementById("task-select").value || window._currentTaskRef || "";
             if (!projectId || !taskVal) { if (manual) alert("プロジェクトと施策を選択してください"); return; }
 
+            const taskName = document.getElementById("tweet-task-name-input")?.value || "";
+            const postDate = document.getElementById("tweet-post-date").value;
+
+            // タイトル・日付は必須
+            if (!taskName || !postDate) {
+                if (manual) alert("施策名と投稿日は必須です");
+                return;
+            }
+
             const draft = {
                 taskRef: taskVal,
-                taskName: document.getElementById("tweet-task-name-input")?.value || "",
+                taskName,
                 _templateKey: _currentTweetContext._templateKey || "",
                 taskFields: collectTaskFieldData(),
-                postDate: document.getElementById("tweet-post-date").value,
+                postDate,
                 postTime: document.getElementById("tweet-post-time").value,
                 memo: document.getElementById("tweet-memo").value,
                 body: document.getElementById("tweet-body").value,
@@ -4674,16 +4670,55 @@ ${fieldDefs}
                 updatedAt: new Date().toISOString()
             };
 
+            const isNew = window._isNewCalendarEntry;
             const p = getProjects()[projectId];
             if (!p.tweetDrafts) p.tweetDrafts = {};
             p.tweetDrafts[taskVal] = draft;
             saveProject(projectId, p);
+            window._isNewCalendarEntry = false;
+
             if (manual) {
                 const btn = document.querySelector('#tweet-editor-panel [onclick*="saveTweetDraft"]');
                 if (btn) { btn.textContent = "✓ 保存済み"; setTimeout(() => btn.textContent = "保存", 1500); }
             }
-            // カレンダーの該当行を同期更新
-            syncCalendarRow(taskVal, draft);
+
+            if (isNew) {
+                // 新規追加時はカレンダー全体を再描画
+                refreshCalendar(projectId);
+            } else {
+                // 既存行の同期更新
+                syncCalendarRow(taskVal, draft);
+            }
+        }
+
+        function refreshCalendar(projectId) {
+            const p = getProjects()[projectId];
+            if (!p) return;
+            const calTab = document.getElementById(`dtab-${projectId}-tweet_calendar`);
+            if (calTab) {
+                calTab.innerHTML = renderTweetCalendar(projectId, p);
+                // 現在のタブを維持
+                const activeTab = window._currentCalTab || 'tweet';
+                calTab.querySelectorAll('[data-cal-panel]').forEach(el => {
+                    el.style.display = el.dataset.calPanel === activeTab ? '' : 'none';
+                });
+                calTab.querySelectorAll('.detail-tab-btn').forEach(b => {
+                    b.classList.toggle('active', b.textContent.includes(activeTab === 'pr' ? 'プレスリリース' : 'ツイート'));
+                });
+            }
+            // 施策実行タブ内のカレンダーも更新
+            const contentCal = document.querySelector('#content-tab [data-cal-panel]')?.parentElement;
+            if (contentCal && !calTab?.contains(contentCal)) {
+                const html = renderTweetCalendar(projectId, p);
+                contentCal.innerHTML = html;
+                const activeTab = window._currentCalTab || 'tweet';
+                contentCal.querySelectorAll('[data-cal-panel]').forEach(el => {
+                    el.style.display = el.dataset.calPanel === activeTab ? '' : 'none';
+                });
+                contentCal.querySelectorAll('.detail-tab-btn').forEach(b => {
+                    b.classList.toggle('active', b.textContent.includes(activeTab === 'pr' ? 'プレスリリース' : 'ツイート'));
+                });
+            }
         }
 
         function syncCalendarRow(taskRef, draft) {
@@ -4732,16 +4767,30 @@ ${fieldDefs}
             const taskVal = document.getElementById("task-select").value || window._currentTaskRef || "";
             if (!projectId || !taskVal) { if (manual !== false) alert("プロジェクトと施策を選択してください"); return; }
             const taskName = document.getElementById("pr-task-name-input")?.value || "";
+
+            // タイトルは必須
+            if (!taskName) {
+                if (manual !== false) alert("施策名は必須です");
+                return;
+            }
+
             const formData = {};
             document.querySelectorAll("#content-form input, #content-form textarea, #content-form select").forEach(el => {
                 if (el.id) formData[el.id] = el.value;
             });
+
+            const isNew = window._isNewCalendarEntry;
             const p = getProjects()[projectId];
             if (!p.prDrafts) p.prDrafts = {};
-            p.prDrafts[taskVal] = { taskRef: taskVal, taskName, formData, updatedAt: new Date().toISOString() };
+            p.prDrafts[taskVal] = { taskRef: taskVal, taskName, formData, postDate: formData['cf-release-date'] || '', updatedAt: new Date().toISOString() };
             saveProject(projectId, p);
-            // カレンダー行を同期
-            syncCalendarRow(taskVal, { taskName, postDate: '', body: '', status: 'not_started' });
+            window._isNewCalendarEntry = false;
+
+            if (isNew) {
+                refreshCalendar(projectId);
+            } else {
+                syncCalendarRow(taskVal, { taskName, postDate: formData['cf-release-date'] || '', body: '', status: 'draft' });
+            }
             if (manual !== false) {
                 const btns = document.querySelectorAll('#legacy-content-form [onclick*="savePRDraft"]');
                 btns.forEach(btn => { btn.textContent = "✓ 保存済み"; setTimeout(() => btn.textContent = "保存", 1500); });
